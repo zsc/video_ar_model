@@ -14,8 +14,9 @@ MoE 架构设计（few expert, many expert, common expert 等），router aux lo
 loss 设计（是否加入object detection, semantic segmentation loss，是否用 lidar 做伪监督等）
 pretrain 阶段 loss 监控，interpretability 设计（transformer-lens 可用？）, eval benchmark 设计
 SFT / RL 设计（DPO/ PPO, long CoT RL）
-量化剪枝等部署时加速
 文件组织是 index.md + chapter1.md + ...
+
+先不管量化剪枝等部署时加速
 
 ## Audience
 verteran programmer and AI scientists
