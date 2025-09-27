@@ -30,24 +30,7 @@ $$\text{fps}_t = \text{fps}_{base} \cdot \left(1 + \alpha \cdot \frac{\|\mathbf{
 其中$\mathbf{v}_t$为光流速度场。
 
 **基于预测误差的采样**：
-```python
-def adaptive_sampling(video, model):
-    frames = []
-    t = 0
-    while t < len(video):
-        frames.append(video[t])
-        # 预测下一帧
-        pred = model.predict(frames[-1])
-        # 计算跳帧数
-        skip = 1
-        while skip < max_skip:
-            error = ||video[t+skip] - pred||
-            if error > threshold:
-                break
-            skip += 1
-        t += skip
-    return frames
-```
+一种更智能的采样方法是让模型自身来决定需要跳过多少帧。其基本思路是：在每个选定的帧之后，模型会尝试预测未来的帧。然后，将这个预测结果与视频中实际的未来帧进行比较。只要预测误差在可接受的阈值范围内，就说明这段时间的场景变化不大，可以安全地跳过这些帧。直到某一帧的预测误差超过了阈值，才将这一帧作为下一个关键帧。通过这种方式，模型只在“意料之外”的时刻进行采样，从而在保证信息量的同时，极大地降低了序列的冗余度。
 
 **场景复杂度感知采样**：
 $$\text{Complexity}_t = \sum_{i} w_i \cdot f_i(S_t)$$
@@ -149,16 +132,7 @@ $$\text{FPS-LN}(x) = \gamma(\text{fps}) \odot \frac{x - \mu}{\sigma} + \beta(\te
 $$F_{t+\alpha} = (1-\alpha) \cdot F_t + \alpha \cdot F_{t+1} + \text{ResNet}(F_t, F_{t+1}, \alpha)$$
 
 **自适应跳帧预测**：
-```python
-def adaptive_skip_prediction(model, context, target_time):
-    # 根据目标时间选择预测步长
-    dt = target_time - context[-1].time
-    if dt < 0.1:  # 100ms内
-        return direct_predict(model, context)
-    else:  # 长跳预测
-        intermediate = predict_intermediate_points(model, context, dt)
-        return refine_prediction(intermediate, target_time)
-```
+为了处理可变的时间间隔，模型需要具备自适应的预测能力。当需要预测一个较近的未来时刻（例如，100毫秒内）时，模型可以直接从当前状态进行单步预测。但当需要预测一个较远的未来时刻时，单步预测的误差会很大。在这种情况下，一个更鲁棒的策略是：首先，在当前状态和目标时刻之间，预测出几个关键的中间状态点；然后，基于这些更可靠的中间点，再对最终的目标时刻进行精细化的预测。这种由粗到精的预测策略，提高了模型在长时域预测中的准确性和稳定性。
 
 **Rule of Thumb**：
 - 时间编码维度：64-128
@@ -185,15 +159,7 @@ $$\alpha = \left(\frac{L_{target}}{L_{train}}\right)^{d/(d-2)}$$
 ### 长序列外插策略
 
 **动态缩放方案**：
-```python
-def dynamic_ntk_scale(current_len, max_trained_len, dim):
-    if current_len <= max_trained_len:
-        return 1.0
-    else:
-        # 超出训练长度时动态调整
-        alpha = (current_len / max_trained_len) ** (dim / (dim - 2))
-        return alpha
-```
+标准的NTK缩放使用一个固定的缩放因子，但这并非最优。动态NTK缩放（Dynamic NTK Scaling）提出了一种更灵活的策略：在模型处理的序列长度未超过其训练长度时，不进行任何缩放（缩放因子为1.0）；一旦当前序列长度超出了训练时的最大长度，就根据超出比例，动态地计算出相应的缩放因子α并应用到位置编码的基频上。这种方法使得模型在处理短序列时能保持最高的精度，同时在需要外插时又能无缝地、动态地扩展其位置编码的表示范围，从而实现更稳健和灵活的长度外推。
 
 **分段线性插值**：
 $$\theta(L) = \begin{cases}
@@ -306,17 +272,16 @@ $$\mathbf{F}_{t+1} = f(\mathbf{F}_{\leq t}, \mathbf{T}_{t+1})$$
 $$\mathcal{L}_{align} = \sum_t \|\text{PoseNet}(\mathbf{F}_t) - \mathbf{p}_t^{GPS}\|^2$$
 
 **多模态融合**：
-```python
-def trajectory_guided_fusion(visual_features, trajectory_features):
-    # Cross attention
-    visual_guided = cross_attention(visual_features, trajectory_features)
-    trajectory_guided = cross_attention(trajectory_features, visual_features)
+将GPS轨迹信息有效地融入视觉特征是实现轨迹引导预测的关键。一种强大的融合策略是使用门控交叉注意力机制（Gated Cross-Attention）。
 
-    # Gated fusion
-    gate = sigmoid(W_g @ concat([visual_guided, trajectory_guided]))
-    fused = gate * visual_guided + (1 - gate) * trajectory_guided
-    return fused
-```
+其工作流程如下：
+1.  **双向引导**：首先，通过两次交叉注意力计算，实现双向的信息引导。
+    -   第一次，以视觉特征作为查询（Query），轨迹特征作为键（Key）和值（Value），计算出被轨迹信息“引导”过的视觉特征。
+    -   第二次，反过来，以轨迹特征作为查询，视觉特征作为键和值，计算出被视觉信息“引导”过的轨迹特征。
+2.  **门控融合**：然后，将这两个经过双向引导的特征拼接起来，送入一个门控网络（通常是一个带有Sigmoid激活的全连接层）。这个门控网络会输出一个0到1之间的“门控”值。
+3.  **加权合并**：最后，使用这个门控值，对两个引导特征进行加权求和。例如，`fused = gate * visual_guided + (1 - gate) * trajectory_guided`。
+
+这种机制允许模型根据当前的输入，动态地、自适应地决定在多大程度上信任视觉信息，在多大程度上信任轨迹信息，从而实现更鲁棒和智能的多模态特征融合。
 
 **Rule of Thumb**：
 - GPS采样率：1-10Hz
@@ -373,21 +338,11 @@ $$\mathcal{L}_{semantic} = -\sum_{c} \mathbb{1}[S_i = c] \log p(S_j = c | \text{
 ### 对抗训练增强一致性
 
 **时序判别器**：
-```python
-def temporal_discriminator(sequence):
-    # 判断序列是否时序一致
-    features = []
-    for t in range(len(sequence)-1):
-        feat = concat([
-            sequence[t],
-            sequence[t+1],
-            sequence[t+1] - sequence[t]  # 差分特征
-        ])
-        features.append(feat)
+为了让生成的视频在时序上看起来更“真实”，我们可以引入一个时序判别器（Temporal Discriminator），与主生成模型进行对抗训练。这个判别器的任务就是区分一个视频序列是真实的，还是由模型生成的。
 
-    score = MLP(aggregate(features))
-    return score  # 真实序列为1，生成序列为0
-```
+为了完成这个任务，判别器需要关注视频帧之间的动态变化。一种有效的做法是，不仅输入单帧的图像，还输入相邻帧之间的差异信息。例如，对于一个序列，判别器可以处理由 `(帧t, 帧t+1, 帧t+1 - 帧t)` 拼接而成的特征。通过学习识别真实视频中动作的连贯性和物理规律（例如，物体的运动应该是平滑的），判别器能够发现生成视频中不自然的、不连贯的动态变化。
+
+在对抗训练中，生成器为了“欺骗”这个越来越强的时序判别器，就必须生成在动态变化上更平滑、更符合物理规律的视频序列，从而有效地增强了生成视频的时序一致性。
 
 **空间判别器**：
 判断多视图是否一致：
@@ -447,19 +402,15 @@ $$y(\mathbf{p}, t) = \sum_{k} w_k \cdot x(\mathbf{p} + \Delta \mathbf{p}_k, t + 
 $$PE_{4D}(x,y,z,t) = \sum_{i,j,k,l} \sin\left(\frac{2\pi}{\lambda_{ijkl}}(ix + jy + kz + lt)\right)$$
 
 **稀疏4D注意力**：
-```python
-def sparse_4d_attention(features_4d, mask_4d):
-    # 只在占用体素间计算注意力
-    occupied_indices = torch.where(mask_4d > 0)
-    sparse_features = features_4d[occupied_indices]
+在4D时空数据上直接应用标准的自注意力机制，其计算量会随着体素数量的四次方增长，这在计算上是不可行的。稀疏4D注意力（Sparse 4D Attention）是一种优化策略，旨在将计算量限制在有意义的区域。
 
-    # 计算稀疏注意力
-    attention = compute_attention(sparse_features)
+其核心思想是，场景中的大部分时空区域都是“空的”，我们只需要在那些被“占用”的体素之间计算注意力。具体流程如下：
+1.  **识别占用区域**：首先，根据一个占用掩码（Occupancy Mask），找出所有被占用的体素的时空索引。
+2.  **收集稀疏特征**：只从这些被占用的位置提取出对应的特征，形成一个紧凑的、稀疏的特征列表。
+3.  **计算稀疏注意力**：只在这个稀疏的特征列表上执行标准的自注意力计算。由于列表的长度远小于总的体素数量，计算量被大幅降低。
+4.  **映射回密集表示**：将计算得到的注意力输出，根据其原始索引，“散射”回原来的4D密集网格中的相应位置。
 
-    # 映射回密集表示
-    output_4d = scatter(attention, occupied_indices, features_4d.shape)
-    return output_4d
-```
+通过这种方式，注意力机制的计算被精确地聚焦在场景中的物体和动态变化上，避免了在大量空白区域上的无效计算，从而实现了对4D数据的高效处理。
 
 **时空池化策略**：
 - 空间：max/average pooling
@@ -473,20 +424,9 @@ $$\mathbf{p}'(t) = \mathbf{p}(t) + \mathbf{A}(t) \cdot \mathbf{n}(t)$$
 其中$\mathbf{A}(t)$为时变扰动幅度。
 
 **4D混合**：
-```python
-def mixup_4d(sample1, sample2, alpha):
-    # 时空维度的mixup
-    lambda_t = np.random.beta(alpha, alpha)
+Mixup是一种有效的数据增强技术，它通过将两个不同的样本进行线性插值来创造新的、混合的训练样本。将这个思想扩展到4D时空数据上，我们可以设计一种“4D混合”策略来增强模型的泛化能力。
 
-    # 时间维度对齐
-    t_split = int(lambda_t * T)
-    mixed = concat([
-        sample1[:, :, :, :t_split],
-        sample2[:, :, :, t_split:]
-    ])
-
-    return mixed
-```
+与在像素空间或特征空间进行插值不同，一个更符合时空数据特性的混合方法是“时空拼接”。具体来说，我们可以随机选择一个时间点 `t_split`，然后将两个不同的4D数据样本在这个时间点上进行“拼接”：将第一个样本在 `t_split` 之前的部分，与第二个样本在 `t_split` 之后的部分组合起来，形成一个新的、混合的4D样本。这种方法模拟了场景中可能发生的突变或模式切换，能够鼓励模型学习更鲁棒的时序依赖关系，并提高其对动态变化的适应能力。
 
 ## 本章小结
 

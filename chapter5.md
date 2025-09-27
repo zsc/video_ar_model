@@ -35,17 +35,9 @@ $$AI = \frac{\text{FLOPs}}{\text{Memory\_Access}}$$
 对于注意力：$AI \approx \frac{2n^2d}{4nd + 4n^2} \approx \frac{d}{2}$
 
 **IO复杂度**：
-```python
-def attention_io_complexity(n, d, block_size):
-    # 标准注意力
-    standard_io = O(n * d + n * n)  # 读Q,K,V + 读写attention matrix
+从IO（输入/输出）的角度看，标准自注意力的瓶颈在于巨大的注意力矩阵 `A = QK^T`。在计算过程中，我们需要从高带宽内存（HBM）中读取Q, K, V（`O(nd)`），然后计算并写回大小为 `n x n` 的注意力矩阵（`O(n²)`），之后再将其读出与V相乘。这个 `O(n²)` 的读写开销是主要的IO瓶颈。
 
-    # 分块注意力
-    num_blocks = n // block_size
-    block_io = O(num_blocks * block_size * d)  # 减少重复读取
-
-    return standard_io, block_io
-```
+像FlashAttention这样的分块注意力（Tiled/Blocked Attention）算法，通过将计算过程分解为块（Blocks）来优化IO。它将Q, K, V矩阵分割成小块，每次只将一小块数据加载到GPU核心上更快的SRAM中进行计算，计算完一个块的最终结果后，再写回HBM。通过这种方式，它避免了对整个 `n x n` 注意力矩阵的读写，从而将IO复杂度从 `O(n²)` 降低到近似 `O(nd)`，极大地提升了计算效率。
 
 ### 长序列特有问题
 
@@ -96,24 +88,11 @@ $$Y = \frac{\phi(Q) \cdot (\phi(K)^T \cdot V)}{\phi(Q) \cdot \sum_i \phi(K_i)}$$
 ### 稀疏注意力模式
 
 **局部窗口注意力**：
-```python
-def local_attention(q, k, v, window_size):
-    n = q.shape[0]
-    attention_scores = []
+局部窗口注意力（Local Window Attention）是最简单、最直接的一种稀疏注意力模式。它基于一个普遍的假设：在很多序列数据（如图像和视频）中，一个元素主要与其邻近的元素相关。
 
-    for i in range(n):
-        start = max(0, i - window_size // 2)
-        end = min(n, i + window_size // 2 + 1)
+该方法将全局的注意力计算限制在一个以当前token为中心的、固定大小的局部“窗口”（Window）内。对于序列中的每一个token `i`，它只计算与窗口内其他token（例如，从 `i - w/2` 到 `i + w/2`，其中 `w` 是窗口大小）的注意力权重，而忽略窗口外的所有其他token。
 
-        q_i = q[i:i+1]
-        k_local = k[start:end]
-        v_local = v[start:end]
-
-        score = softmax(q_i @ k_local.T) @ v_local
-        attention_scores.append(score)
-
-    return torch.cat(attention_scores)
-```
+通过这种方式，每个token的计算量从 `O(n*d)` 降低到了 `O(w*d)`，其中窗口大小 `w` 通常远小于序列总长 `n`。因此，总的计算复杂度从 `O(n²*d)` 降低到了 `O(n*w*d)`，变成了线性复杂度。这种方法在处理图像和视频等具有强局部性的数据时非常有效。
 
 复杂度：$O(n \cdot w \cdot d)$
 
@@ -134,16 +113,15 @@ Pattern = Local(w=512) + Global(tokens=[CLS, SEP]) + Dilated(r=2)
 ### 混合注意力策略
 
 **Big Bird架构**：
-```python
-def bigbird_attention(q, k, v):
-    # 三种注意力模式组合
-    random_attn = random_attention(q, k, v, num_blocks=r)
-    window_attn = sliding_window_attention(q, k, v, window_size=w)
-    global_attn = global_attention(q, k, v, global_tokens=g)
+Big Bird是一种被证明在理论上和实践上都非常有效的混合注意力策略，它通过组合三种不同的稀疏注意力模式，来近似全局注意力的性能：
 
-    # 加权组合
-    return alpha * random_attn + beta * window_attn + gamma * global_attn
-```
+1.  **随机注意力（Random Attention）**：每个token都会随机地选择少数几个（例如，`r`个）其他token进行注意力计算。这有助于在整个序列中传递长程信息，保证了信息流的全局连通性。
+
+2.  **窗口注意力（Window Attention）**：每个token都会关注其邻近的一个固定大小窗口内的所有token。这部分负责捕捉数据的局部结构和依赖关系。
+
+3.  **全局注意力（Global Attention）**：在序列中，选择少数几个“重要”的token（例如，在NLP中是`[CLS]`，在视频中可能是代表场景摘要的token），让这些全局token可以关注序列中的所有其他token，同时也被所有其他token所关注。这确保了关键信息可以在整个序列中进行广播和汇集。
+
+通过将这三种模式的注意力结果进行加权组合，Big Bird能够在保持线性计算复杂度的同时，有效地模拟出标准全局注意力的信息流动模式，从而在多种长序列任务上都取得了优异的性能。
 
 **Reformer (LSH注意力)**：
 使用局部敏感哈希分桶：
@@ -152,20 +130,11 @@ $$h(x) = \arg\max([xR_1, -xR_1, ..., xR_k, -xR_k])$$
 相似的向量大概率分到同一桶。
 
 **稀疏性自适应**：
-```python
-def adaptive_sparse_attention(q, k, v, threshold):
-    # 计算注意力分数
-    scores = q @ k.T
+固定的稀疏模式（如局部窗口）可能无法适应所有的数据和任务。自适应稀疏注意力（Adaptive Sparse Attention）旨在让模型自己学习应该关注哪些位置。
 
-    # 保留top-k
-    topk_scores, indices = torch.topk(scores, k=int(threshold * n))
+一种实现方式是，在计算注意力时，不直接将完整的注意力矩阵 `A = QK^T` 送入Softmax，而是先对其进行“稀疏化”处理。具体来说，对于矩阵中的每一行（即每个查询token），我们不计算它与所有键token的注意力，而是只选择与它相似度最高的top-k个键token，并只在这k个token上进行Softmax归一化。其他位置的注意力权重则被强制设为零。
 
-    # 稀疏注意力
-    sparse_attn = torch.zeros_like(scores)
-    sparse_attn.scatter_(1, indices, softmax(topk_scores))
-
-    return sparse_attn @ v
-```
+这种方法允许每个token动态地、根据内容选择其最重要的信息来源，而不是被一个固定的、预定义的模式所限制。例如，一个代表车辆的token可能会选择关注它前方的路面token和远处的交通灯token，即使它们在序列中的位置相距很远。这使得稀疏注意力在保持高效的同时，也具备了更高的灵活性和表达能力。
 
 **Rule of Thumb**：
 - 窗口大小：256-512
