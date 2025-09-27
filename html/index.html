@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>自动驾驶视频自回归预测大模型：原理与实践</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item active" >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型：原理与实践</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第1章：多传感器BEV特征融合</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第2章：数据工程与质量控制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第3章：时空采样与轨迹对齐</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第4章：视觉编码器与Tokenization</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第5章：高效长序列注意力机制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第6章：MoE架构与规模化</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第7章：多任务学习框架</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第8章：Video-Action联合建模</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第9章：预训练监控与可解释性</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第10章：监督微调策略（Supervised Fine-tuning Strategies）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第11章：强化学习优化（Reinforcement Learning Optimization）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-folder " data-level="0" >
+                        <div class="tree-folder-header">
+                            <span class="tree-arrow">▶</span>
+                            <span class="tree-icon"></span>
+                            <span class="tree-title">old</span>
+                        </div>
+                        <div class="tree-folder-content">
+                
+                    <div class="tree-item " style="padding-left: 20px;">
+                        <a href="old/index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型教科书</span>
+                        </a>
+                    </div>
+                </div></div></nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="_1">自动驾驶视频自回归预测大模型：原理与实践</h1>
+<h2 id="_2">前言</h2>
+<p>本书系统介绍面向自动驾驶场景的视频自回归预测大模型（~20B参数）的设计与实现。我们将深入探讨从多传感器融合、数据工程到模型架构、训练策略的完整技术栈，为研究者和工程师提供实用的设计洞察和工程经验。</p>
+<p>本书面向具有深度学习基础的AI科学家和资深工程师，重点关注大规模模型在自动驾驶场景下的独特挑战与解决方案。</p>
+<hr />
+<h2 id="_3">第一部分：基础架构与数据工程</h2>
+<h3 id="1bev"><a href="chapter1.html">第1章：多传感器BEV特征融合</a></h3>
+<ul>
+<li>1.1 自动驾驶传感器体系概述</li>
+<li>1.2 相机到BEV的投影变换</li>
+<li>1.3 多视角特征融合策略</li>
+<li>1.4 时序融合与运动补偿</li>
+<li>1.5 传感器故障鲁棒性设计</li>
+<li><strong>高级话题：神经辐射场(NeRF)在BEV重建中的应用</strong></li>
+</ul>
+<h3 id="2"><a href="chapter2.html">第2章：数据工程与质量控制</a></h3>
+<ul>
+<li>2.1 大规模数据去重算法</li>
+<li>2.2 数据多样性度量与优化</li>
+<li>2.3 高价值场景挖掘</li>
+<li>2.4 Fleet trigger与主动学习</li>
+<li>2.5 数据飞轮与持续改进</li>
+<li><strong>高级话题：对抗样本生成与corner case合成</strong></li>
+</ul>
+<h3 id="3"><a href="chapter3.html">第3章：时空采样与轨迹对齐</a></h3>
+<ul>
+<li>3.1 视频时域采样策略</li>
+<li>3.2 变帧率处理与帧率感知PE</li>
+<li>3.3 NTK位置编码与长序列外插</li>
+<li>3.4 GPS轨迹融合与loop closure</li>
+<li>3.5 时空一致性约束</li>
+<li><strong>高级话题：4D占用网格与时空连续性建模</strong></li>
+</ul>
+<hr />
+<h2 id="_4">第二部分：模型架构设计</h2>
+<h3 id="4tokenization"><a href="chapter4.html">第4章：视觉编码器与Tokenization</a></h3>
+<ul>
+<li>4.1 连续vs离散：表示学习的权衡</li>
+<li>4.2 视觉tokenizer架构设计</li>
+<li>4.3 BPE与动态压缩策略</li>
+<li>4.4 Grounding与语义对齐</li>
+<li>4.5 Tokenizer loss设计与优化</li>
+<li><strong>高级话题：Vector Quantization与Diffusion超分辨率融合</strong></li>
+</ul>
+<h3 id="5"><a href="chapter5.html">第5章：高效长序列注意力机制</a></h3>
+<ul>
+<li>5.1 长序列建模的计算挑战</li>
+<li>5.2 线性注意力与稀疏模式</li>
+<li>5.3 O(n log n)复杂度算法实现</li>
+<li>5.4 O(n√n)块状注意力设计</li>
+<li>5.5 混合注意力架构</li>
+<li><strong>高级话题：State Space Models (Mamba)与自回归视频生成</strong></li>
+</ul>
+<h3 id="6moe"><a href="chapter6.html">第6章：MoE架构与规模化</a></h3>
+<ul>
+<li>6.1 MoE设计动机与原理</li>
+<li>6.2 Expert粒度与数量权衡</li>
+<li>6.3 Router设计与负载均衡</li>
+<li>6.4 Common expert与知识共享</li>
+<li>6.5 辅助loss与训练稳定性</li>
+<li><strong>高级话题：Soft MoE与连续路由机制</strong></li>
+</ul>
+<hr />
+<h2 id="_5">第三部分：训练策略与优化</h2>
+<h3 id="7"><a href="chapter7.html">第7章：多任务学习框架</a></h3>
+<ul>
+<li>7.1 主任务：视频预测</li>
+<li>7.2 目标检测与语义分割辅助任务</li>
+<li>7.3 深度估计与3D重建</li>
+<li>7.4 LiDAR点云伪监督</li>
+<li>7.5 多任务权重平衡策略</li>
+<li><strong>高级话题：任务间梯度冲突与多目标优化</strong></li>
+</ul>
+<h3 id="8video-action"><a href="chapter8.html">第8章：Video-Action联合建模</a></h3>
+<ul>
+<li>8.1 动作空间定义与表示</li>
+<li>8.2 视频条件下的动作预测</li>
+<li>8.3 纯视觉思维链</li>
+<li>8.4 多模态token交错设计</li>
+<li>8.5 因果推理与反事实生成</li>
+<li><strong>高级话题：World Model与可微分模拟器</strong></li>
+</ul>
+<h3 id="9"><a href="chapter9.html">第9章：预训练监控与可解释性</a></h3>
+<ul>
+<li>9.1 Loss曲线诊断与异常检测</li>
+<li>9.2 梯度流分析与死神经元</li>
+<li>9.3 注意力模式可视化</li>
+<li>9.4 Transformer-lens应用</li>
+<li>9.5 评估benchmark设计</li>
+<li><strong>高级话题：机械可解释性与电路发现</strong></li>
+</ul>
+<hr />
+<h2 id="_6">第四部分：对齐与优化</h2>
+<h3 id="10"><a href="chapter10.html">第10章：监督微调策略</a></h3>
+<ul>
+<li>10.1 高质量标注数据收集</li>
+<li>10.2 多阶段微调策略</li>
+<li>10.3 灾难性遗忘与正则化</li>
+<li>10.4 Few-shot与零样本泛化</li>
+<li>10.5 领域适应技术</li>
+<li><strong>高级话题：LoRA与参数高效微调在视频模型中的应用</strong></li>
+</ul>
+<h3 id="11"><a href="chapter11.html">第11章：强化学习优化</a></h3>
+<ul>
+<li>11.1 自动驾驶奖励函数设计</li>
+<li>11.2 DPO：直接偏好优化</li>
+<li>11.3 PPO在视频生成中的应用</li>
+<li>11.4 长思维链强化学习</li>
+<li>11.5 安全约束与对齐</li>
+<li><strong>高级话题：Constitutional AI与自动驾驶安全边界</strong></li>
+</ul>
+<hr />
+<h2 id="_7">附录</h2>
+<h3 id="a"><a href="appendix_a.html">附录A：数学基础回顾</a></h3>
+<ul>
+<li>注意力机制数学推导</li>
+<li>信息论与熵</li>
+<li>优化理论要点</li>
+</ul>
+<h3 id="b"><a href="appendix_b.html">附录B：工程实践指南</a></h3>
+<ul>
+<li>分布式训练配置</li>
+<li>内存优化技巧</li>
+<li>调试工具使用</li>
+</ul>
+<h3 id="c"><a href="appendix_c.html">附录C：参考文献汇总</a></h3>
+<ul>
+<li>核心论文列表</li>
+<li>开源项目资源</li>
+<li>数据集介绍</li>
+</ul>
+<hr />
+<h2 id="_8">术语表</h2>
+<ul>
+<li><strong>BEV (Bird's Eye View)</strong>: 鸟瞰图表示</li>
+<li><strong>MoE (Mixture of Experts)</strong>: 专家混合模型</li>
+<li><strong>NTK (Neural Tangent Kernel)</strong>: 神经正切核</li>
+<li><strong>DPO (Direct Preference Optimization)</strong>: 直接偏好优化</li>
+<li><strong>PPO (Proximal Policy Optimization)</strong>: 近端策略优化</li>
+<li><strong>SFT (Supervised Fine-Tuning)</strong>: 监督微调</li>
+</ul>
+<hr />
+<h2 id="_9">关于作者</h2>
+<p>本书由自动驾驶AI研究团队编写，致力于推动视频生成模型在自动驾驶领域的应用。</p>
+<h2 id="_10">版权信息</h2>
+<p>© 2024 自动驾驶视频AI研究组。保留所有权利。</p>
+            </article>
+            
+            <nav class="page-nav"><a href="old/index.html" class="nav-link next">自动驾驶视频自回归预测大模型教科书 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

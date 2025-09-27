@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>第10章：监督微调策略（Supervised Fine-tuning Strategies）</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型：原理与实践</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第1章：多传感器BEV特征融合</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第2章：数据工程与质量控制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第3章：时空采样与轨迹对齐</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第4章：视觉编码器与Tokenization</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第5章：高效长序列注意力机制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第6章：MoE架构与规模化</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第7章：多任务学习框架</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第8章：Video-Action联合建模</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第9章：预训练监控与可解释性</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第10章：监督微调策略（Supervised Fine-tuning Strategies）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第11章：强化学习优化（Reinforcement Learning Optimization）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-folder " data-level="0" >
+                        <div class="tree-folder-header">
+                            <span class="tree-arrow">▶</span>
+                            <span class="tree-icon"></span>
+                            <span class="tree-title">old</span>
+                        </div>
+                        <div class="tree-folder-content">
+                
+                    <div class="tree-item " style="padding-left: 20px;">
+                        <a href="old/index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型教科书</span>
+                        </a>
+                    </div>
+                </div></div></nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="10supervised-fine-tuning-strategies">第10章：监督微调策略（Supervised Fine-tuning Strategies）</h1>
+<p>监督微调（SFT）是将预训练的视频自回归模型适配到特定自动驾驶任务的关键步骤。与传统的视觉-语言模型不同，自动驾驶场景下的SFT需要同时考虑多模态输入、时序一致性、安全性约束和实时性要求。本章将深入探讨如何设计高效的监督微调策略，包括高质量标注数据收集、多阶段微调流程、灾难性遗忘缓解、少样本泛化和领域适应技术。</p>
+<h2 id="101">10.1 高质量标注数据收集与筛选</h2>
+<h3 id="1011">10.1.1 人工标注与数据质量控制</h3>
+<p>自动驾驶场景的标注数据需要极高的准确性和一致性。标注流程设计需要考虑：</p>
+<p><strong>多层次标注体系</strong>：</p>
+<div class="codehilite"><pre><span></span><code>标注层级结构：
+L0: 基础感知标注（物体框、车道线、红绿灯）
+L1: 语义理解标注（意图识别、场景分类）
+L2: 行为预测标注（轨迹、交互关系）
+L3: 决策推理标注（驾驶决策链、风险评估）
+</code></pre></div>
+
+<p><strong>标注质量评估指标</strong>：</p>
+<ul>
+<li><strong>一致性评分</strong>：$S_{consistency} = \frac{1}{N}\sum_{i=1}^{N} IoU(A_i, \bar{A})$，其中$A_i$是第$i$个标注员的结果，$\bar{A}$是共识结果</li>
+<li><strong>完整性评分</strong>：$S_{completeness} = \frac{|D_{annotated}|}{|D_{required}|}$，覆盖所有必需的标注维度</li>
+<li><strong>时序连续性</strong>：$S_{temporal} = 1 - \frac{1}{T-1}\sum_{t=1}^{T-1}||f_t - f_{t+1}||_2$，相邻帧标注的平滑度</li>
+</ul>
+<p><strong>主动学习采样策略</strong>：</p>
+<div class="codehilite"><pre><span></span><code>不确定性采样：
+P(x) ∝ H(y|x) = -∑_y p(y|x) log p(y|x)
+
+多样性采样：
+P(x) ∝ min_{x&#39; ∈ S} d(x, x&#39;)  # 与已标注集合S的最小距离
+
+混合策略：
+P(x) = α·P_uncertainty(x) + β·P_diversity(x) + γ·P_difficulty(x)
+</code></pre></div>
+
+<h3 id="1012">10.1.2 自动标注与伪标签生成</h3>
+<p>利用教师模型生成高质量伪标签可以大幅降低标注成本：</p>
+<p><strong>教师模型集成</strong>：
+为了提升伪标签的质量和可靠性，可以采用多个“教师模型”进行集成。该方法汇集了多个独立训练或不同架构的模型的预测结果，以生成一个更鲁棒的共识标签。</p>
+<p>其工作流程如下：</p>
+<ol>
+<li><strong>独立预测</strong>：对于一个未标注的样本，每个教师模型都独立地进行预测，并输出预测结果及其置信度分数。</li>
+<li><strong>加权投票</strong>：将所有教师模型的预测结果进行汇总。一种有效的方式是根据每个模型的置信度进行加权投票，置信度越高的模型在最终决策中的话语权越大。可以使用温度系数（temperature）来调整置信度分布的平滑度。</li>
+<li><strong>共识与过滤</strong>：计算所有教师模型预测结果之间的一致性（例如，投票的熵或预测的方差）作为最终的共识置信度。只有当这个共识置信度超过一个预设的阈值（如0.9）时，才接受这个伪标签，否则将其丢弃。这种严格的过滤机制确保了只有高质量、高确定性的伪标签被用于学生模型的训练。</li>
+</ol>
+<p><strong>时序一致性约束</strong>：</p>
+<div class="codehilite"><pre><span></span><code>L_temporal = ∑_t ||f(x_t) - T_{t→t+1}(f(x_{t+1}))||_2
+</code></pre></div>
+
+<p>其中$T_{t→t+1}$是基于光流或运动模型的变换。</p>
+<h3 id="1013">10.1.3 困难样本挖掘</h3>
+<p><strong>困难样本识别</strong>：</p>
+<ul>
+<li><strong>预测不一致性</strong>：模型在多次前向传播中预测结果差异大</li>
+<li><strong>梯度异常</strong>：反向传播时梯度范数异常大或小</li>
+<li><strong>分布外检测</strong>：特征空间中远离训练分布的样本</li>
+</ul>
+<p>困难样本挖掘旨在自动识别那些模型最容易出错或最不确定的样本，从而将有限的标注资源集中在这些最有价值的数据上。一个有效的困难样本评分系统可以综合以下几种信号：</p>
+<ol>
+<li>
+<p><strong>预测不确定性 (Prediction Uncertainty)</strong>：模型对一个样本的预测越不确定，它就越可能是困难样本。这可以通过蒙特卡洛丢弃（MC Dropout）等方法来量化：在推理时多次启用Dropout进行前向传播，然后计算多次预测结果的方差或熵。</p>
+</li>
+<li>
+<p><strong>分布外分数 (Out-of-Distribution Score)</strong>：困难样本通常在特征空间中远离模型已经见过的“典型”样本。我们可以维护一个包含训练集中典型样本特征的“记忆库”（Memory Bank），然后计算新样本的特征与这个记忆库中所有特征的马氏距离（Mahalanobis Distance）或欧氏距离。距离越大，样本越可能是分布外的困难样本。</p>
+</li>
+<li>
+<p><strong>梯度信息 (Gradient Information)</strong>：一个样本的损失函数对模型参数的梯度大小，也反映了该样本对模型更新的贡献程度。梯度范数（Gradient Norm）较大的样本通常是模型尚未学好的困难样本。</p>
+</li>
+</ol>
+<p>通过将这些指标加权组合，可以为每个未标注样本计算出一个“困难分数”，并优先将分数最高的样本送去进行人工标注。</p>
+<h2 id="102">10.2 多阶段微调策略设计</h2>
+<h3 id="1021">10.2.1 渐进式解冻策略</h3>
+<p>逐步解冻模型层可以更好地保留预训练知识：</p>
+<p>在微调大型预训练模型时，如果立即解冻所有层并用较小的学习率进行训练，可能会破坏预训练阶段学到的宝贵特征。渐进式解冻（Progressive Unfreezing）是一种更温和、更有效的策略。</p>
+<p>该策略将模型的层从头到尾分成多个阶段或组。微调过程分为相应数量的步骤：</p>
+<ol>
+<li><strong>初始阶段</strong>：首先，只解冻模型的最后一层（或最后一组层），即最接近任务输出的层，并对其进行训练。模型的其余部分保持“冻结”状态，不参与梯度更新。这使得模型可以在不破坏主体结构的情况下，快速学习新任务的输出格式。</li>
+<li><strong>后续阶段</strong>：在完成前一阶段的训练后，逐步向模型的更深层解冻。例如，在第二步中，解冻倒数第二组层，并与之前已解冻的层一起进行训练。</li>
+<li><strong>完全微调</strong>：这个过程持续进行，直到模型的所有层都被解冻，最终对整个模型进行全局微调。</li>
+</ol>
+<p>这种由表及里、逐层深入的微调方式，能够更好地保留和利用预训练模型在不同层次上学到的通用知识，同时使其平稳地适应新任务的特定要求。</p>
+<p><strong>学习率调度策略</strong>：</p>
+<div class="codehilite"><pre><span></span><code>不同层使用不同学习率：
+lr_layer_i = lr_base * decay^(L-i)
+
+其中L是总层数，decay通常取0.9-0.95
+</code></pre></div>
+
+<h3 id="1022">10.2.2 任务递进式微调</h3>
+<p>从简单任务逐步过渡到复杂任务：</p>
+<div class="codehilite"><pre><span></span><code>Stage 1: 基础感知任务
+
+- 物体检测
+- 车道线检测
+- 深度估计
+
+Stage 2: 场景理解任务
+
+- 语义分割
+- 场景图生成
+- 3D重建
+
+Stage 3: 预测任务
+
+- 轨迹预测
+- 意图识别
+- 风险评估
+
+Stage 4: 决策任务
+
+- 行为规划
+- 轨迹规划
+- 交互决策
+</code></pre></div>
+
+<p><strong>任务相关性矩阵</strong>：
+为了确定最佳的任务递进顺序，我们可以量化不同任务之间的相关性。如果两个任务在更新模型时倾向于改变相同的参数方向，那么它们就是正相关的，可以一起学习或相继学习。反之，如果它们的梯度方向冲突，则应分开学习。</p>
+<p>一种计算任务相关性的方法是：</p>
+<ol>
+<li><strong>梯度计算</strong>：在一个共享的、通用的数据集上，分别计算每个任务的损失函数相对于模型共享参数的梯度。</li>
+<li><strong>相似度计算</strong>：将每个任务的梯度向量展平，然后计算任意两个任务（task_i, task_j）的梯度向量之间的余弦相似度。相似度接近1，表示任务高度相关；接近-1，表示任务相互冲突；接近0，表示任务不相关。</li>
+<li><strong>构建依赖图</strong>：基于计算出的相关性矩阵，可以构建一个任务依赖图，其中高度相关的任务被连接起来。通过对这个图进行拓扑排序，就可以得到一个从基础任务到复杂任务的、冲突最小的、最高效的训练顺序。</li>
+</ol>
+<h3 id="1023">10.2.3 混合精度与梯度累积</h3>
+<p><strong>混合精度训练</strong>：
+为了在不牺牲模型性能的前提下加速训练并减少显存占用，混合精度训练（Mixed Precision Training）和梯度累积（Gradient Accumulation）是两种非常关键的工程技巧。</p>
+<p><strong>混合精度训练</strong>利用现代GPU中专门为低精度计算优化的Tensor Core。其核心思想是：</p>
+<ul>
+<li><strong>前向传播</strong>：在<code>autocast</code>上下文中，将模型的计算（如矩阵乘法）自动转换为半精度浮点数（FP16）进行，这能带来数倍的速度提升和近一半的显存节省。</li>
+<li><strong>损失计算与反向传播</strong>：为了保持数值稳定性，损失的计算和梯度的反向传播仍然可以在全精度（FP32）下进行。</li>
+<li><strong>动态损失缩放（Loss Scaling）</strong>：由于FP16的数值范围较小，反向传播中可能会出现梯度下溢（变为0）的问题。为了防止这种情况，可以在反向传播前将损失值乘以一个很大的缩放因子（Scaler），等梯度计算出来后再将其缩放回去。这个缩放因子是动态调整的，以确保梯度始终在FP16的安全范围内。</li>
+</ul>
+<p><strong>梯度累积</strong>是一种在显存有限的情况下，模拟大批量（Batch Size）训练的技巧。其原理是：</p>
+<ul>
+<li>在多次（例如，8次）前向和反向传播中，计算出的梯度并不立即用于更新模型参数，而是被累积起来。</li>
+<li>每当累积了足够次数的梯度后（例如8次），才用累积的总梯度对模型参数进行一次更新，然后清空梯度。</li>
+</ul>
+<p>通过这种方式，可以用8倍的显存开销，达到与直接使用8倍批量大小训练相似的效果，从而在稳定训练的同时，有效利用硬件资源。</p>
+<h2 id="103">10.3 灾难性遗忘与正则化技术</h2>
+<h3 id="1031-ewc">10.3.1 弹性权重巩固（EWC）</h3>
+<p>通过Fisher信息矩阵保护重要参数：</p>
+<p>弹性权重巩固（Elastic Weight Consolidation, EWC）是一种经典的、用于缓解灾难性遗忘的正则化方法。其核心思想是：在学习新任务时，对那些被认为对旧任务“重要”的参数施加一个二次惩罚，限制它们的改动幅度。</p>
+<p>“重要性”是通过<strong>费雪信息矩阵（Fisher Information Matrix）</strong>来衡量的。费雪信息矩阵反映了模型输出对某个参数的敏感度，可以近似理解为参数的“重要性”。</p>
+<p>EWC的实现流程如下：</p>
+<ol>
+<li><strong>计算重要性</strong>：在第一个任务（旧任务）上训练完成后，遍历一遍旧任务的数据集。对于每个样本，计算损失函数对模型各参数的梯度，然后将梯度的平方累加起来，得到每个参数的费雪信息（即重要性）。</li>
+<li><strong>保存快照</strong>：保存当前模型的重要参数（<code>optimal_params</code>）和计算出的费雪矩阵。</li>
+<li><strong>正则化学习</strong>：在训练新任务时，在标准的任务损失之外，额外添加一个EWC惩罚项。这个惩罚项是新模型参数与旧任务最优参数之差的加权二次范数，权重就是之前计算出的费雪信息矩阵。公式为：<code>Loss = L_new + λ/2 * Σ F_i * (θ_i - θ_i_old)^2</code>。</li>
+</ol>
+<p>通过这种方式，EWC允许对新任务不重要的参数自由更新，同时“拉住”那些对旧任务至关重要的参数，从而在学习新知识的同时，尽可能地保留旧的记忆。</p>
+<h3 id="1032">10.3.2 记忆回放与经验池</h3>
+<p><strong>优先经验回放</strong>：
+记忆回放（Replay Buffer）是一种在持续学习中缓解灾难性遗忘的有效方法，它通过在训练新任务时，随机抽取一小部分旧任务的“经验”（即数据样本）进行“复习”，来维持模型在旧任务上的性能。优先经验回放（Prioritized Experience Replay, PER）是对标准经验回放的改进，它使得“复习”过程更加高效。</p>
+<p>标准的经验回放是均匀地从记忆库中采样，而PER则认为，并非所有经验都同等重要。那些模型预测错误或感到“意外”的经验（即TD-error较大的样本）应该被更频繁地回放。</p>
+<p>其工作机制如下：</p>
+<ol>
+<li><strong>存储与优先级</strong>：当一个新的经验样本被存入记忆库时，我们会计算它的TD-error（时序差分误差，可以理解为预测的意外程度），并根据这个误差计算一个优先级分数 <code>p = (|TD-error| + ε)^α</code>。α是一个超参数，控制着优先级的强度。</li>
+<li><strong>采样</strong>：当需要从记忆库中采样进行训练时，不是均匀采样，而是根据每个样本的优先级分数进行概率采样。优先级越高的样本，被选中的概率越大。</li>
+<li><strong>重要性权重</strong>：由于这种非均匀采样会引入偏差，PER使用“重要性采样权重”（Importance Sampling Weights）来修正。对于一个被高优先级选中的样本，其在梯度更新中的权重会被调低，以纠正其被过度采样带来的影响。</li>
+</ol>
+<p>通过这种方式，PER让模型能够更集中地“复习”那些最容易忘记或最难学习的知识点，从而大大提高了记忆回放的效率。</p>
+<h3 id="1033-">10.3.3 知识蒸馏与教师-学生框架</h3>
+<p><strong>特征级蒸馏</strong>：
+知识蒸馏（Knowledge Distillation）是一种模型压缩和知识迁移技术，它通过训练一个较小的“学生模型”来模仿一个较大的、预训练好的“教师模型”的行为，从而将知识从教师传递给学生。在持续学习中，我们可以将预训练模型或在旧任务上训练好的模型作为教师，来防止学生模型在学习新任务时遗忘旧知识。</p>
+<p>除了简单地让学生模型模仿教师模型的最终输出（logits）外，<strong>特征级蒸馏</strong>是一种更强大、更深入的知识传递方式。它强迫学生模型去模仿教师模型在其中间层产生的特征表示（feature maps）。</p>
+<p>其损失函数通常包含两部分：</p>
+<ol>
+<li><strong>特征匹配损失</strong>：计算学生模型和教师模型在对应中间层的特征图之间的差异，通常使用均方误差（MSE Loss）。这鼓励学生模型学习与教师模型相似的、层次化的特征提取方式。如果两者的特征图维度不匹配，可以在学生模型的输出后添加一个线性“适配器”（Adapter）层来进行对齐。</li>
+<li><strong>注意力图蒸馏</strong>：除了直接匹配特征值，还可以匹配特征图上的空间注意力分布。可以从教师和学生的特征图上分别计算出注意力图（例如，通过计算特征通道间的相关性），然后使用KL散度等损失函数来最小化两个注意力图之间的分布差异。这有助于学生模型学习到教师模型“关注”图像中哪些重要区域的方式。</li>
+</ol>
+<p>通过这种方式，学生模型不仅学习了“做什么”（最终预测），更学习了“如何做”（中间的特征提取和注意力分配过程），从而更有效地继承教师模型的“知识精髓”。</p>
+<h2 id="104">10.4 少样本学习与零样本泛化</h2>
+<h3 id="1041-maml">10.4.1 元学习方法（MAML）</h3>
+<p>Model-Agnostic Meta-Learning适配到视频理解：</p>
+<p>模型无关元学习（Model-Agnostic Meta-Learning, MAML）是一种旨在让模型“学会如何学习”的元学习算法。其核心目标不是在任何特定任务上都表现出色，而是找到一个良好的参数初始化状态，使得模型从这个状态出发，能够在面对一个新任务时，仅用少量样本和几次梯度更新就能快速适应并获得良好性能。</p>
+<p>MAML的训练过程包含两个循环：</p>
+<ol>
+<li>
+<p><strong>内循环（Inner Loop）：任务适应</strong></p>
+<ul>
+<li>对于每个新任务，首先复制一份当前的主模型参数。</li>
+<li>在这个复制的模型上，使用该任务的少量“支持集”（Support Set）样本进行几次（例如5次）梯度下降更新。这个过程模拟了模型在新任务上的快速适应过程。</li>
+<li>经过几次更新后，我们得到了一个“适应后”的模型参数。</li>
+</ul>
+</li>
+<li>
+<p><strong>外循环（Outer Loop）：元更新</strong></p>
+<ul>
+<li>使用这个“适应后”的模型，在每个任务的“查询集”（Query Set）上评估其性能，并计算损失。</li>
+<li>关键在于，这个查询集上的损失是关于<strong>原始模型参数</strong>（即内循环开始前的参数）的函数。我们计算这个损失对原始参数的梯度。</li>
+<li>将所有任务的查询集损失累加起来，用这个总损失的梯度来更新原始的主模型参数。</li>
+</ul>
+</li>
+</ol>
+<p>通过这种“嵌套优化”的方式，外循环的更新会朝着一个方向优化主模型：使得从该模型出发的内循环适应过程能够在新任务上取得最低的损失。最终，MAML训练出的模型本身可能在任何任务上都不是最优的，但它是一个极佳的“起点”，具备了快速掌握新技能的泛化能力。</p>
+<h3 id="1042-prompt-learning">10.4.2 提示学习（Prompt Learning）</h3>
+<p><strong>视觉提示设计</strong>：
+提示学习（Prompt Learning）是一种新兴的、参数高效的微调范式。它借鉴了自然语言处理中“提示”（Prompt）的概念，其核心思想是：在微调时，完全冻结预训练的基座模型（Backbone）的所有参数，只在输入端添加一小组可学习的“提示”向量（Prompt Vectors）。</p>
+<p>在视觉领域，这通常实现为：</p>
+<ol>
+<li><strong>定义提示</strong>：在模型输入序列的前面，拼接上若干个（例如10个）可学习的、与模型隐藏层维度相同的向量。这些向量就是“视觉提示”。</li>
+<li><strong>训练提示</strong>：在微调过程中，只有这些提示向量的参数会被更新，而占模型绝大多数参数的基座模型保持不变。</li>
+<li><strong>引导模型</strong>：这些被优化的提示向量就像是给模型的“指令”或“上下文”，它们会引导被冻结的基座模型关注新任务的特定方面，从而在不改变自身权重的情况下，产生适应新任务的输出。</li>
+</ol>
+<p>这种方法的优势在于极高的参数效率，对于一个数十亿参数的模型，可能只需要训练数万个参数（提示向量）就能完成对新任务的适配。</p>
+<p>更进一步，提示本身也可以是动态的：</p>
+<ul>
+<li><strong>上下文提示</strong>：可以训练一个小型网络，根据每个输入的具体内容动态地生成最适合该输入的提示。</li>
+<li><strong>层级提示</strong>：可以在模型的每一层或特定几层都插入可学习的提示向量，实现更精细的、分层级的行为引导。</li>
+</ul>
+<h3 id="1043">10.4.3 对比学习与原型网络</h3>
+<p><strong>原型网络实现</strong>：
+原型网络（Prototypical Networks）是一种简单而有效的度量学习（Metric Learning）方法，尤其适用于少样本分类任务。其核心思想是，在由编码器（Encoder）映射出的嵌入空间（Embedding Space）中，每个类别都可以由该类别下所有样本嵌入的均值来表示，这个均值向量被称为该类的“原型”（Prototype）。</p>
+<p>原型网络的工作流程分为两步：</p>
+<ol>
+<li>
+<p><strong>原型计算</strong>：对于一个少样本任务，我们有一个包含少量已标注样本的“支持集”（Support Set）。首先，使用编码器将支持集中每个样本都映射为一个嵌入向量。然后，对于每个类别，计算其所有样本嵌入向量的平均值，得到该类别的原型向量。</p>
+</li>
+<li>
+<p><strong>分类</strong>：当一个新的“查询”（Query）样本到来时，同样使用编码器将其映射到嵌入空间。然后，计算这个查询样本的嵌入向量与所有类别原型之间的距离（通常使用欧氏距离）。查询样本被预测为与其原型距离最近的那个类别。</p>
+</li>
+</ol>
+<p>整个模型（即编码器）的训练目标就是学习一个好的嵌入空间，在这个空间里，同类样本的嵌入尽可能地聚集在一起，而不同类样本的嵌入则尽可能地相互远离。通过这种方式，即使对于从未见过的类别，只要有少数几个样本来计算原型，模型也能进行有效的分类。</p>
+<h2 id="105">10.5 领域适应与迁移学习</h2>
+<h3 id="1051-dann">10.5.1 域对抗训练（DANN）</h3>
+<p><strong>域判别器设计</strong>：
+域对抗训练（Domain-Adversarial Neural Network, DANN）是一种经典的无监督领域自适应方法，旨在学习一种“领域不变”（Domain-invariant）的特征表示，使得在源域（Source Domain，有标签）上训练的模型能够很好地泛化到目标域（Target Domain，无标签）。</p>
+<p>其架构包含三个核心组件，并通过一个巧妙的“对抗”游戏进行训练：</p>
+<ol>
+<li>
+<p><strong>特征提取器 (Feature Extractor)</strong>：这是模型的主干，负责将输入（源域和目标域的样本）映射到一个共享的特征空间。它的目标是学习一种既对主任务（如分类）有判别力，又无法区分样本来源领域的特征。</p>
+</li>
+<li>
+<p><strong>任务分类器 (Task Classifier)</strong>：它接收特征提取器的输出，并对其进行任务相关的预测（如物体类别）。它的训练目标是最小化在源域数据上的分类损失，这和标准监督学习一样。</p>
+</li>
+<li>
+<p><strong>域判别器 (Domain Discriminator)</strong>：它也接收特征提取器的输出，但其任务是判断输入的特征是来自源域还是目标域。它的训练目标是最大化域判别的准确率。</p>
+</li>
+</ol>
+<p>训练的关键在于<strong>梯度反转层（Gradient Reversal Layer）</strong>。在反向传播时，这个层会将来自域判别器损失的梯度乘以一个负值（<code>-α</code>）再传递给特征提取器。这就形成了一个“对抗”：</p>
+<ul>
+<li><strong>域判别器</strong>努力学习区分两个领域。</li>
+<li><strong>特征提取器</strong>在努力最小化任务分类损失的同时，接收到反转的梯度，从而努力学习一种能够“欺骗”域判别器的特征，即使得两个领域的特征分布尽可能相似。</li>
+</ul>
+<p>通过这个对抗过程，特征提取器被迫学习到一种领域不变的通用表示，从而将在源域学到的知识成功迁移到目标域。</p>
+<h3 id="1052">10.5.2 自适应批归一化</h3>
+<p><strong>域特定BN统计量</strong>：
+批归一化（Batch Normalization, BN）层通过对每个批次的数据进行标准化来加速和稳定训练。然而，标准的BN层在领域自适应场景下会遇到问题，因为它会混合来自不同领域（源域和目标域）的数据，计算出一个“平均”的均值和方差，这会损害模型性能。</p>
+<p>自适应批归一化（Adaptive Batch Normalization, AdaBN）或称领域特定批归一化（Domain-Specific Batch Normalization）提出了一种简单的解决方案：为每个领域维护一套独立的BN统计量（均值和方差）。</p>
+<p>其工作方式如下：</p>
+<ul>
+<li><strong>结构</strong>：在模型中，将每个BN层替换为一个包含多个“子BN层”的模块，每个子BN层对应一个领域。</li>
+<li><strong>训练阶段</strong>：在训练时，根据当前输入样本所属的领域ID，选择对应的子BN层来进行归一化。这样，源域的样本只使用源域的均值和方差，目标域的样本只使用目标域的均值和方差。这使得模型能够学习到适应每个领域数据分布的、领域特定的特征表示。</li>
+<li><strong>测试阶段</strong>：在测试时，由于我们可能不知道样本的领域，一种常见的做法是使用所有领域统计量的加权平均来进行归一化，或者简单地将所有子BN层的输出进行平均。</li>
+</ul>
+<p>AdaBN是一种即插即用的、非常有效的领域自适应方法，它通过在BN层中显式地分离领域信息，帮助模型更好地处理不同领域之间的分布差异。</p>
+<h3 id="1053">10.5.3 自监督域适应</h3>
+<p><strong>旋转预测辅助任务</strong>：
+自监督学习为领域自适应提供了另一种强大的思路。其核心思想是，在无标签的目标域数据上设计一个“借口任务”（Pretext Task），通过让模型完成这个无需人工标签的任务，来学习目标域的数据分布和有意义的特征表示。</p>
+<p>一个经典且有效的自监督任务是<strong>旋转预测（Rotation Prediction）</strong>：</p>
+<ol>
+<li><strong>任务创建</strong>：从目标域数据中随机抽取一张图片，将其随机旋转0°、90°、180°或270°。这个旋转角度（0, 1, 2, 3）就是这张图片的“伪标签”。</li>
+<li><strong>模型训练</strong>：训练模型来预测输入的旋转图片的旋转角度。这本质上是一个4分类问题。</li>
+<li><strong>特征学习</strong>：为了能够正确地预测旋转角度，模型必须超越低级的纹理和颜色信息，去理解图片中物体的“方向”和“姿态”等更高级的语义概念（例如，模型需要知道汽车通常是水平的，树是垂直的）。</li>
+</ol>
+<p>通过在目标域数据上训练这个旋转预测的辅助任务，模型的特征提取器（Encoder）被迫学习到了对目标域数据有意义的、语义丰富的特征。这些学到的特征可以有效地帮助模型在主任务上更好地泛化到目标域，即使没有目标域的主任务标签。这个自监督损失可以与领域对抗损失等其他域适应方法结合使用，以取得更好的效果。</p>
+<h2 id="lora">进阶专题：LoRA与参数高效微调在视频模型中的应用</h2>
+<h3 id="lora_1">LoRA架构设计</h3>
+<p>Low-Rank Adaptation在大规模视频模型中的实现：</p>
+<p>低秩适应（Low-Rank Adaptation, LoRA）是一种革命性的参数高效微调技术，它允许在仅训练极少数（通常&lt;0.1%）参数的情况下，实现与全量微调相媲美的性能。其核心假设是：模型在适应新任务时，其权重的改变量（ΔW）是一个低秩（low-rank）矩阵。</p>
+<p>LoRA的实现方式如下：</p>
+<ol>
+<li><strong>冻结原模型</strong>：在微调时，预训练好的大模型（Base Model）的全部参数保持冻结，不参与任何梯度更新。</li>
+<li><strong>注入适配器</strong>：对于模型中的某些层（通常是Transformer中的权重矩阵，如Q, K, V的投影层），我们在其旁边注入一个“低秩适配器”。这个适配器由两个很小的、可训练的线性层（矩阵A和B）组成。</li>
+<li><strong>低秩更新</strong>：原始的权重矩阵W的更新量<code>ΔW</code>被分解为两个低秩矩阵的乘积：<code>ΔW = B * A</code>。其中，矩阵A将高维输入投影到一个非常小的秩（rank, r）的空间，矩阵B再将其投影回原始维度。在训练时，只有矩阵A和B的参数被更新。</li>
+<li><strong>合并输出</strong>：模型最终的输出是原始冻结模型输出 <code>W*x</code> 与LoRA适配器输出 <code>(B*A)*x</code> 的和。在推理时，为了不增加延迟，可以将训练好的<code>B*A</code>与原始权重<code>W</code>直接相加，形成一个新的权重矩阵，而无需保留额外的适配器层。</li>
+</ol>
+<p>通过这种方式，LoRA将对一个巨大权重矩阵的更新问题，转化为了对两个微小矩阵的优化问题，极大地降低了微调的计算和存储成本，使得在消费级硬件上微调数十亿参数的模型成为可能。</p>
+<h3 id="_1">动态秩选择</h3>
+<p>根据任务复杂度自适应调整LoRA秩：</p>
+<p>标准的LoRA使用一个固定的、全局的秩（rank），但这并非最优选择。不同的任务、甚至同一模型中的不同层，其适应新任务所需的“内在维度”或“修改复杂度”是不同的。动态秩选择（Adaptive Rank Selection）旨在为每个LoRA适配器分配合适的秩，从而在性能和参数效率之间达到更好的平衡。</p>
+<p>一种实现自适应秩选择的方法是：</p>
+<ol>
+<li><strong>重要性计算</strong>：在训练过程中，我们可以周期性地评估每个LoRA适配器中不同“秩一分量”的重要性。一种有效的方法是对权重更新量 <code>ΔW = B*A</code> 进行奇异值分解（SVD）。得到的奇异值（Singular Values）的大小直接反映了每个分量对权重更新的贡献程度。</li>
+<li><strong>有效秩确定</strong>：通过分析奇异值的累积和，我们可以确定需要多少个分量（即“有效秩”）才能捕捉到例如90%或95%的权重更新信息。这个有效秩可以作为该层最优秩的一个估计。</li>
+<li><strong>动态调整</strong>：根据计算出的有效秩，动态地调整LoRA适配器中矩阵A和B的维度。如果一个适配器的有效秩很低，说明它只需要很少的参数就能完成任务，我们可以降低它的秩以节省参数；反之，如果有效秩很高，我们可能需要增加它的秩来提升模型性能。</li>
+</ol>
+<p>这种自适应的方法使得LoRA能够更智能地分配其有限的参数预算，将更多的参数分配给更需要修改的、更复杂的层，同时压缩那些只需微小调整的层，实现更高效的微调。</p>
+<h3 id="lora_2">任务特定LoRA组合</h3>
+<p>LoRA的另一个强大之处在于其出色的可组合性。由于每个LoRA适配器本质上只是对原始模型权重的一个线性“增量”（delta），我们可以非常灵活地对这些增量进行组合。</p>
+<p>在多任务学习场景中，我们可以为每个独立的任务都训练一个专属的LoRA适配器。例如，为“轨迹预测”任务训练一个LoRA_traj，为“风险评估”任务训练一个LoRA_risk。在推理时，我们可以根据需要实现多种操作：</p>
+<ol>
+<li>
+<p><strong>单任务执行</strong>：当需要执行特定任务时，只需将该任务对应的LoRA适配器加载到基座模型上即可。这实现了任务之间的完全解耦，且切换任务的成本极低（只需交换少量适配器参数）。</p>
+</li>
+<li>
+<p><strong>多任务组合</strong>：更强大的是，我们可以将多个任务的LoRA适配器进行线性加权组合。例如，我们可以通过计算 <code>W_new = W_base + w1 * ΔW_traj + w2 * ΔW_risk</code> 来获得一个同时具备轨迹预测和风险评估能力的新模型。这里的权重 <code>w1</code> 和 <code>w2</code> 可以是固定的，也可以是根据当前场景动态调整的。</p>
+</li>
+</ol>
+<p>这种“即插即用”和“线性组合”的特性，使得LoRA成为一种在单个大模型基础上，高效构建和管理多种不同“技能”或“专家”的理想工具，极大地增强了模型的灵活性和可扩展性。</p>
+<h2 id="_2">本章小结</h2>
+<p>监督微调是将大规模预训练模型适配到具体任务的关键环节。本章介绍了从数据收集到模型适配的完整流程，重点讨论了以下核心技术：</p>
+<ol>
+<li><strong>数据工程</strong>：高质量标注、主动学习、困难样本挖掘</li>
+<li><strong>微调策略</strong>：渐进解冻、多阶段训练、混合精度优化</li>
+<li><strong>知识保持</strong>：EWC、记忆回放、知识蒸馏</li>
+<li><strong>少样本学习</strong>：元学习、提示学习、原型网络</li>
+<li><strong>领域适应</strong>：域对抗、自适应归一化、自监督适应</li>
+<li><strong>参数高效</strong>：LoRA及其变体在视频模型中的应用</li>
+</ol>
+<h3 id="_3">关键概念与公式</h3>
+<ul>
+<li><strong>Fisher信息矩阵</strong>：$F = \mathbb{E}[\nabla_\theta \log p(x|\theta) \nabla_\theta \log p(x|\theta)^T]$</li>
+<li><strong>EWC正则化</strong>：$L_{EWC} = L_{new} + \frac{\lambda}{2}\sum_i F_i(\theta_i - \theta_i^*)^2$</li>
+<li><strong>知识蒸馏</strong>：$L_{KD} = \alpha L_{task} + (1-\alpha)KL(p_s||p_t)$</li>
+<li><strong>MAML更新</strong>：$\theta' = \theta - \alpha \nabla_\theta L_{task}(f_\theta)$</li>
+<li><strong>LoRA分解</strong>：$W = W_0 + BA$，其中$B \in \mathbb{R}^{d \times r}, A \in \mathbb{R}^{r \times k}$</li>
+</ul>
+<h3 id="_4">核心论文</h3>
+<ol>
+<li><strong>EWC</strong>: Kirkpatrick et al., "Overcoming catastrophic forgetting in neural networks" (PNAS 2017)</li>
+<li><strong>MAML</strong>: Finn et al., "Model-Agnostic Meta-Learning for Fast Adaptation" (ICML 2017)</li>
+<li><strong>LoRA</strong>: Hu et al., "LoRA: Low-Rank Adaptation of Large Language Models" (ICLR 2022)</li>
+<li><strong>Prompt Learning</strong>: Jia et al., "Visual Prompt Tuning" (ECCV 2022)</li>
+<li><strong>DANN</strong>: Ganin et al., "Domain-Adversarial Training of Neural Networks" (JMLR 2016)</li>
+</ol>
+<h2 id="gotchas">常见陷阱与错误（Gotchas）</h2>
+<h3 id="1">1. 过度微调导致遗忘</h3>
+<ul>
+<li><strong>错误</strong>：对所有层使用相同的大学习率</li>
+<li><strong>解决</strong>：使用层级学习率衰减，底层使用更小的学习率</li>
+</ul>
+<h3 id="2">2. 标注数据分布偏差</h3>
+<ul>
+<li><strong>错误</strong>：只标注简单或典型场景</li>
+<li><strong>解决</strong>：主动采样困难和边缘案例，保持数据多样性</li>
+</ul>
+<h3 id="3">3. 任务间负迁移</h3>
+<ul>
+<li><strong>错误</strong>：盲目多任务训练</li>
+<li><strong>解决</strong>：计算任务相似度矩阵，分组训练相关任务</li>
+</ul>
+<h3 id="4-lora">4. LoRA秩选择不当</h3>
+<ul>
+<li><strong>错误</strong>：所有层使用相同的秩</li>
+<li><strong>解决</strong>：根据层的重要性和梯度分析动态调整秩</li>
+</ul>
+<h3 id="5">5. 验证集泄露</h3>
+<ul>
+<li><strong>错误</strong>：使用验证集进行超参数搜索</li>
+<li><strong>解决</strong>：严格的三分数据集：训练、验证、测试</li>
+</ul>
+<h3 id="6">6. 灾难性遗忘检测滞后</h3>
+<ul>
+<li><strong>错误</strong>：训练后才发现性能退化</li>
+<li><strong>解决</strong>：持续监控在保留验证集上的性能</li>
+</ul>
+<h3 id="7">7. 伪标签噪声累积</h3>
+<ul>
+<li><strong>错误</strong>：无条件接受所有伪标签</li>
+<li><strong>解决</strong>：设置置信度阈值，使用一致性检查</li>
+</ul>
+<h3 id="8">8. 域适应过拟合</h3>
+<ul>
+<li><strong>错误</strong>：在目标域上过度调优</li>
+<li><strong>解决</strong>：保持源域性能监控，使用正则化约束</li>
+</ul>
+<p>这些微调技术的合理组合使用，能够在保持模型泛化能力的同时，实现对特定任务的高效适配。在实际应用中，需要根据具体场景和资源约束选择合适的策略组合。</p>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter9.html" class="nav-link prev">← 第9章：预训练监控与可解释性</a><a href="chapter11.html" class="nav-link next">第11章：强化学习优化（Reinforcement Learning Optimization） →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

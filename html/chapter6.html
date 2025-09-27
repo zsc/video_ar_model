@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>第6章：MoE架构与规模化</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型：原理与实践</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第1章：多传感器BEV特征融合</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第2章：数据工程与质量控制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第3章：时空采样与轨迹对齐</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第4章：视觉编码器与Tokenization</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第5章：高效长序列注意力机制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第6章：MoE架构与规模化</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第7章：多任务学习框架</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第8章：Video-Action联合建模</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第9章：预训练监控与可解释性</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第10章：监督微调策略（Supervised Fine-tuning Strategies）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第11章：强化学习优化（Reinforcement Learning Optimization）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-folder " data-level="0" >
+                        <div class="tree-folder-header">
+                            <span class="tree-arrow">▶</span>
+                            <span class="tree-icon"></span>
+                            <span class="tree-title">old</span>
+                        </div>
+                        <div class="tree-folder-content">
+                
+                    <div class="tree-item " style="padding-left: 20px;">
+                        <a href="old/index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型教科书</span>
+                        </a>
+                    </div>
+                </div></div></nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="6moe">第6章：MoE架构与规模化</h1>
+<p>Mixture of Experts (MoE)是实现模型规模化的关键技术，能够在不成比例增加计算成本的情况下扩展模型容量。本章深入探讨MoE在视频自回归模型中的设计与优化，包括expert粒度选择、router机制、负载均衡，以及训练稳定性等关键问题。</p>
+<h2 id="61-moe">6.1 MoE设计动机与原理</h2>
+<h3 id="_1">条件计算的核心思想</h3>
+<p><strong>稀疏激活原理</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">Dense</span><span class="w"> </span><span class="nv">Model</span>:<span class="w">  </span><span class="nv">All</span><span class="w"> </span><span class="nv">parameters</span><span class="w"> </span><span class="nv">active</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nv">all</span><span class="w"> </span><span class="nv">inputs</span>
+<span class="w">              </span><span class="nv">Compute</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">O</span><span class="ss">(</span><span class="nv">N</span><span class="w"> </span>×<span class="w"> </span><span class="nv">d</span>²<span class="ss">)</span>
+
+<span class="nv">MoE</span><span class="w"> </span><span class="nv">Model</span>:<span class="w">    </span><span class="nv">k</span><span class="o">&lt;&lt;</span><span class="nv">N</span><span class="w"> </span><span class="nv">experts</span><span class="w"> </span><span class="nv">active</span><span class="w"> </span><span class="nv">per</span><span class="w"> </span><span class="nv">input</span>
+<span class="w">              </span><span class="nv">Compute</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">O</span><span class="ss">(</span><span class="nv">k</span><span class="w"> </span>×<span class="w"> </span><span class="nv">d</span>²<span class="ss">)</span>
+<span class="w">              </span><span class="nv">Capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">O</span><span class="ss">(</span><span class="nv">N</span><span class="w"> </span>×<span class="w"> </span><span class="nv">d</span>²<span class="ss">)</span>
+</code></pre></div>
+
+<p>容量与计算解耦，实现高效扩展。</p>
+<p><strong>生物学启发</strong>：
+大脑神经元稀疏激活（2-4%），不同区域处理不同信息。</p>
+<h3 id="moe">MoE数学框架</h3>
+<p><strong>基本形式</strong>：
+$$y = \sum_{i=1}^N g_i(x) \cdot E_i(x)$$
+其中：</p>
+<ul>
+<li>$E_i$：第i个expert网络</li>
+<li>$g_i(x)$：router对expert i的权重</li>
+<li>$\sum_i g_i(x) = 1$（归一化）</li>
+</ul>
+<p><strong>Top-k选择</strong>：
+$$y = \sum_{i \in \text{TopK}(g(x))} \frac{g_i(x)}{\sum_{j \in \text{TopK}} g_j(x)} \cdot E_i(x)$$
+只激活得分最高的k个experts。</p>
+<h3 id="moe_1">自动驾驶场景的MoE动机</h3>
+<p><strong>场景多样性</strong>：</p>
+<div class="codehilite"><pre><span></span><code>场景类型        所需能力              适合的Expert
+────────────────────────────────────────────────
+高速公路        车道保持、跟车        运动预测专家
+城市路口        多目标交互           交互建模专家
+停车场          精确定位             几何推理专家
+恶劣天气        鲁棒感知             去噪增强专家
+</code></pre></div>
+
+<p><strong>计算效率需求</strong>：</p>
+<ul>
+<li>实时推理：&lt;100ms延迟</li>
+<li>边缘部署：&lt;10W功耗</li>
+<li>大模型能力：20B+参数</li>
+</ul>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>Expert数量：8-64个</li>
+<li>激活专家数：1-2个</li>
+<li>专家容量：总容量的1/8到1/4</li>
+</ul>
+<h2 id="62-expert">6.2 Expert粒度与数量权衡</h2>
+<h3 id="expert">粗粒度Expert设计</h3>
+<p><strong>任务级Expert</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">TaskExpert</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">task_type</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span> <span class="o">=</span> <span class="n">task_type</span>
+
+        <span class="k">if</span> <span class="n">task_type</span> <span class="o">==</span> <span class="s1">&#39;motion&#39;</span><span class="p">:</span>
+            <span class="c1"># 运动预测专家</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">MotionPredictionLayers</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">task_type</span> <span class="o">==</span> <span class="s1">&#39;interaction&#39;</span><span class="p">:</span>
+            <span class="c1"># 交互建模专家</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">InteractionModelingLayers</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">task_type</span> <span class="o">==</span> <span class="s1">&#39;perception&#39;</span><span class="p">:</span>
+            <span class="c1"># 感知增强专家</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">PerceptionEnhancementLayers</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>模态级Expert</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">modality_experts</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">modality_type</span><span class="p">):</span>
+    <span class="n">experts</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;visual&#39;</span><span class="p">:</span> <span class="n">VisualExpert</span><span class="p">(),</span>
+        <span class="s1">&#39;trajectory&#39;</span><span class="p">:</span> <span class="n">TrajectoryExpert</span><span class="p">(),</span>
+        <span class="s1">&#39;semantic&#39;</span><span class="p">:</span> <span class="n">SemanticExpert</span><span class="p">(),</span>
+        <span class="s1">&#39;temporal&#39;</span><span class="p">:</span> <span class="n">TemporalExpert</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">experts</span><span class="p">[</span><span class="n">modality_type</span><span class="p">](</span><span class="n">features</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="expert_1">细粒度Expert设计</h3>
+<p><strong>Token级Expert</strong>：
+每个token独立选择expert：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">TokenLevelMoE</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">top_k</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">FeedForward</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">router</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_k</span> <span class="o">=</span> <span class="n">top_k</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># x: [batch, seq_len, d_model]</span>
+        <span class="n">router_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># [batch, seq_len, num_experts]</span>
+
+        <span class="c1"># Top-k selection per token</span>
+        <span class="n">topk_logits</span><span class="p">,</span> <span class="n">topk_indices</span> <span class="o">=</span> <span class="n">router_logits</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">topk_gates</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">topk_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Dispatch to experts</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_k</span><span class="p">):</span>
+            <span class="n">expert_idx</span> <span class="o">=</span> <span class="n">topk_indices</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">gate</span> <span class="o">=</span> <span class="n">topk_gates</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="c1"># Gather tokens for each expert</span>
+            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">)):</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">expert_idx</span> <span class="o">==</span> <span class="n">e</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">expert_input</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">expert_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="n">e</span><span class="p">](</span><span class="n">expert_input</span><span class="p">)</span>
+                    <span class="n">output</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">+=</span> <span class="n">gate</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">*</span> <span class="n">expert_output</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<h3 id="expert_2">层级Expert混合</h3>
+<p><strong>浅层细粒度+深层粗粒度</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">HierarchicalMoE</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">,</span> <span class="n">d_model</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">num_layers</span> <span class="o">//</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># 浅层：细粒度，多expert</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">TokenLevelMoE</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">num_layers</span> <span class="o">//</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># 中层：中等粒度</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">SequenceLevelMoE</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># 深层：粗粒度，少expert</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">TaskLevelMoE</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="expert_3">Expert容量设计</h3>
+<p><strong>固定容量</strong>：
+$$\text{Capacity} = \frac{n \cdot k}{N} \cdot (1 + \epsilon)$$
+其中n为token数，k为top-k，N为expert数，ε为buffer因子。</p>
+<p><strong>动态容量</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">dynamic_capacity</span><span class="p">(</span><span class="n">router_probs</span><span class="p">,</span> <span class="n">min_capacity</span><span class="p">,</span> <span class="n">max_capacity</span><span class="p">):</span>
+    <span class="c1"># 根据路由概率动态分配</span>
+    <span class="n">expected_tokens</span> <span class="o">=</span> <span class="n">router_probs</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># 每个expert期望token数</span>
+
+    <span class="n">capacities</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">exp_tokens</span> <span class="ow">in</span> <span class="n">expected_tokens</span><span class="p">:</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span>
+            <span class="n">exp_tokens</span> <span class="o">*</span> <span class="mf">1.25</span><span class="p">,</span>  <span class="c1"># 25% buffer</span>
+            <span class="nb">min</span><span class="o">=</span><span class="n">min_capacity</span><span class="p">,</span>
+            <span class="nb">max</span><span class="o">=</span><span class="n">max_capacity</span>
+        <span class="p">)</span>
+        <span class="n">capacities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">capacity</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">capacities</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>Token级：64-128 experts</li>
+<li>序列级：8-16 experts</li>
+<li>任务级：2-4 experts</li>
+<li>容量buffer：25-50%</li>
+</ul>
+<h2 id="63-router">6.3 Router设计与负载均衡</h2>
+<h3 id="router">Router架构</h3>
+<p><strong>线性Router</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">LinearRouter</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w_gate</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_gate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>注意力Router</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">AttentionRouter</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expert_embeddings</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">num_experts</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># 计算与每个expert的相似度</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bsd,ed-&gt;bse&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expert_embeddings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scores</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>层级Router</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">HierarchicalRouter</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_groups</span><span class="p">,</span> <span class="n">experts_per_group</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group_router</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_groups</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expert_routers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">experts_per_group</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_groups</span><span class="p">)</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># 先选组</span>
+        <span class="n">group_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">group_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">group_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># 组内选expert</span>
+        <span class="n">expert_logits</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">router</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expert_routers</span><span class="p">):</span>
+            <span class="n">expert_logits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">group_probs</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">expert_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="_2">负载均衡机制</h3>
+<p><strong>负载均衡损失</strong>：
+$$\mathcal{L}_{balance} = N \cdot \sum_{i=1}^N f_i \cdot P_i$$
+其中$f_i$为expert i的token比例，$P_i$为router概率均值。</p>
+<p><strong>实现</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">load_balancing_loss</span><span class="p">(</span><span class="n">router_probs</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+    <span class="c1"># router_probs: [batch, seq_len, num_experts]</span>
+
+    <span class="c1"># Token分布</span>
+    <span class="n">tokens_per_expert</span> <span class="o">=</span> <span class="n">router_probs</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">tokens_per_expert</span> <span class="o">/</span> <span class="n">tokens_per_expert</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="c1"># Router概率分布</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">router_probs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># 负载均衡损失</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">num_experts</span> <span class="o">*</span> <span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">P</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">loss</span>
+</code></pre></div>
+
+<h3 id="vs-token">专家选择vs Token选择</h3>
+<p><strong>Expert-Choice Routing</strong>：
+Expert选择要处理的token：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">expert_choice_routing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">router_logits</span><span class="p">,</span> <span class="n">expert_capacity</span><span class="p">):</span>
+    <span class="n">batch</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">num_experts</span> <span class="o">=</span> <span class="n">router_logits</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="c1"># 每个expert选择top-k tokens</span>
+    <span class="n">expert_gates</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">expert_indices</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">):</span>
+        <span class="n">expert_scores</span> <span class="o">=</span> <span class="n">router_logits</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">e</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+        <span class="c1"># Expert选择得分最高的tokens</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">expert_capacity</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">expert_scores</span><span class="p">))</span>
+        <span class="n">topk_scores</span><span class="p">,</span> <span class="n">topk_idx</span> <span class="o">=</span> <span class="n">expert_scores</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+
+        <span class="n">expert_gates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">topk_scores</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">expert_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">topk_idx</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">expert_gates</span><span class="p">,</span> <span class="n">expert_indices</span>
+</code></pre></div>
+
+<p><strong>Token-Choice Routing</strong>：
+Token选择要去的expert（传统方式）。</p>
+<h3 id="vs">确定性vs随机路由</h3>
+<p><strong>确定性路由</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">deterministic_routing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">router</span><span class="p">):</span>
+    <span class="n">logits</span> <span class="o">=</span> <span class="n">router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="c1"># Hard top-k</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">logits</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">indices</span>
+</code></pre></div>
+
+<p><strong>随机路由（训练时）</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">stochastic_routing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">router</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="n">logits</span> <span class="o">=</span> <span class="n">router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">temperature</span>
+
+    <span class="c1"># Gumbel-Softmax采样</span>
+    <span class="n">gumbel</span> <span class="o">=</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">logits</span><span class="p">)))</span>
+    <span class="n">logits_with_noise</span> <span class="o">=</span> <span class="n">logits</span> <span class="o">+</span> <span class="n">gumbel</span>
+
+    <span class="c1"># Soft top-k</span>
+    <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logits_with_noise</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>负载均衡损失权重：0.01-0.1</li>
+<li>Router温度：1.0-5.0</li>
+<li>Expert容量：1.25×平均负载</li>
+<li>随机路由比例：10-20%</li>
+</ul>
+<h2 id="64-common-expert">6.4 Common Expert与知识共享</h2>
+<h3 id="common-expert">Common Expert设计</h3>
+<p><strong>共享+专用架构</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MoEWithCommonExpert</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># 共享专家（always active）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">common_expert</span> <span class="o">=</span> <span class="n">FeedForward</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">expand_factor</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># 专用专家</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">specialized_experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">FeedForward</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">expand_factor</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">)</span>
+        <span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">router</span> <span class="o">=</span> <span class="n">Router</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># 共享路径</span>
+        <span class="n">common_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">common_expert</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># 专用路径</span>
+        <span class="n">specialized_output</span> <span class="o">=</span> <span class="n">dispatch_to_experts</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">specialized_experts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">router</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 组合</span>
+        <span class="k">return</span> <span class="n">common_output</span> <span class="o">+</span> <span class="n">specialized_output</span>
+</code></pre></div>
+
+<h3 id="_3">知识蒸馏与共享</h3>
+<p><strong>Expert间知识蒸馏</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">expert_distillation_loss</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">):</span>
+    <span class="c1"># expert_outputs: list of [batch, seq_len, d_model]</span>
+
+    <span class="n">loss</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">num_pairs</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">)):</span>
+            <span class="c1"># KL散度</span>
+            <span class="n">loss</span> <span class="o">+=</span> <span class="n">F</span><span class="o">.</span><span class="n">kl_div</span><span class="p">(</span>
+                <span class="n">F</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
+                <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
+                <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;batchmean&#39;</span>
+            <span class="p">)</span>
+            <span class="n">num_pairs</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">loss</span> <span class="o">/</span> <span class="n">num_pairs</span>
+</code></pre></div>
+
+<h3 id="mixture-of-depths">Mixture of Depths</h3>
+<p><strong>深度选择机制</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MixtureOfDepths</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">TransformerLayer</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">depth_router</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># 决定每个token的处理深度</span>
+        <span class="n">depth_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth_router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># [batch, seq_len, num_layers]</span>
+        <span class="n">depth_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">depth_logits</span><span class="p">)</span>
+
+        <span class="c1"># 渐进处理</span>
+        <span class="n">hidden</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">):</span>
+            <span class="c1"># 概率性跳过</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">depth_probs</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">hidden</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">*</span> <span class="n">layer</span><span class="p">(</span><span class="n">hidden</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mask</span><span class="p">)</span> <span class="o">*</span> <span class="n">hidden</span>
+
+        <span class="k">return</span> <span class="n">hidden</span>
+</code></pre></div>
+
+<h3 id="_4">参数共享策略</h3>
+<p><strong>层间参数共享</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SharedExperts</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">share_ratio</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">shared_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">d_model</span> <span class="o">*</span> <span class="n">share_ratio</span><span class="p">)</span>
+        <span class="n">private_dim</span> <span class="o">=</span> <span class="n">d_model</span> <span class="o">-</span> <span class="n">shared_dim</span>
+
+        <span class="c1"># 共享参数</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shared_params</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">shared_dim</span><span class="p">)</span>
+
+        <span class="c1"># 专用参数</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">private_params</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">private_dim</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">)</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">expert_idx</span><span class="p">):</span>
+        <span class="n">shared_feat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shared_params</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">private_feat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_params</span><span class="p">[</span><span class="n">expert_idx</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">shared_feat</span><span class="p">,</span> <span class="n">private_feat</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>Common expert大小：25-50%总容量</li>
+<li>参数共享比例：30-50%</li>
+<li>蒸馏损失权重：0.1-0.5</li>
+<li>深度选择：平均激活50-70%层</li>
+</ul>
+<h2 id="65-loss">6.5 辅助Loss与训练稳定性</h2>
+<h3 id="_5">辅助损失设计</h3>
+<p><strong>Router z-loss</strong>：
+减少router logits幅度，防止过拟合：
+$$\mathcal{L}_z = \frac{1}{B \cdot S} \sum_{i,j} \log^2(1 + e^{x_{ij}})$$
+<strong>实现</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">router_z_loss</span><span class="p">(</span><span class="n">router_logits</span><span class="p">):</span>
+    <span class="c1"># 防止router过度自信</span>
+    <span class="n">z_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">logsumexp</span><span class="p">(</span><span class="n">router_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">z_loss</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</code></pre></div>
+
+<p><strong>专家多样性损失</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">expert_diversity_loss</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">):</span>
+    <span class="c1"># 鼓励不同expert产生不同输出</span>
+    <span class="n">num_experts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">)</span>
+    <span class="n">similarity_matrix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_experts</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+            <span class="c1"># 余弦相似度</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cosine_similarity</span><span class="p">(</span>
+                <span class="n">expert_outputs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span>
+                <span class="n">expert_outputs</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span>
+                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="n">similarity_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span>
+
+    <span class="c1"># 最小化相似度</span>
+    <span class="k">return</span> <span class="n">similarity_matrix</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="_6">训练稳定性技巧</h3>
+<p><strong>梯度裁剪策略</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">adaptive_gradient_clipping</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">max_norm</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="c1"># 每个expert独立裁剪</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s1">&#39;expert&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="c1"># Expert参数</span>
+            <span class="n">expert_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;expert&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span>
+                <span class="n">param</span><span class="p">,</span> <span class="n">max_norm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">expert_idx</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 共享参数</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>专家Dropout</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ExpertDropout</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drop_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop_rate</span> <span class="o">=</span> <span class="n">drop_rate</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expert_outputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">training</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">expert_outputs</span>
+
+        <span class="c1"># 随机丢弃部分expert</span>
+        <span class="n">keep_prob</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">drop_rate</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bernoulli</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">),),</span> <span class="n">keep_prob</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 重新归一化</span>
+        <span class="n">scaled_outputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">output</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">mask</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="n">scaled_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span> <span class="o">/</span> <span class="n">keep_prob</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">scaled_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">scaled_outputs</span>
+</code></pre></div>
+
+<h3 id="_7">初始化策略</h3>
+<p><strong>Router初始化</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">init_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+    <span class="c1"># 均匀初始化，避免初期不平衡</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">zeros_</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">std</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+
+    <span class="c1"># 添加噪声打破对称性</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">router</span><span class="o">.</span><span class="n">weight</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">router</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.001</span>
+</code></pre></div>
+
+<p><strong>Expert初始化差异化</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">init_experts_diverse</span><span class="p">(</span><span class="n">experts</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">expert</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">experts</span><span class="p">):</span>
+        <span class="c1"># 不同的初始化策略</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="n">expert</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">kaiming_uniform_</span><span class="p">(</span><span class="n">expert</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">orthogonal_</span><span class="p">(</span><span class="n">expert</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+        <span class="c1"># 不同的初始scale</span>
+        <span class="n">expert</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span> <span class="o">*=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="_8">训练调度</h3>
+<p><strong>渐进激活</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ProgressiveActivation</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">warmup_steps</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span> <span class="o">=</span> <span class="n">num_experts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warmup_steps</span> <span class="o">=</span> <span class="n">warmup_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_step</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">get_active_experts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">warmup_steps</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span>
+
+        <span class="c1"># 线性增加</span>
+        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_step</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">warmup_steps</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">progress</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_step</span> <span class="o">+=</span> <span class="mi">1</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>z-loss权重：0.001</li>
+<li>多样性损失权重：0.01</li>
+<li>梯度裁剪：1.0-10.0</li>
+<li>Expert dropout：0.1-0.2</li>
+<li>预热步数：1000-5000</li>
+</ul>
+<h2 id="soft-moe">高级话题：Soft MoE与连续路由机制</h2>
+<h3 id="soft-moe_1">Soft MoE原理</h3>
+<p><strong>软分配机制</strong>：
+不是选择top-k，而是软组合所有experts：
+$$y = \sum_{i=1}^N \text{Softmax}(\phi(x, E_i)) \cdot E_i(x)$$</p>
+<p><strong>Slot-based Soft MoE</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SoftMoE</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">num_slots</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_slots</span> <span class="o">=</span> <span class="n">num_slots</span>
+
+        <span class="c1"># Slot embeddings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_embeds</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">num_slots</span><span class="p">,</span> <span class="n">d_model</span><span class="p">))</span>
+
+        <span class="c1"># Experts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">FeedForward</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">)</span>
+        <span class="p">])</span>
+
+        <span class="c1"># Dispatch and combine weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_slots</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">combine</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_slots</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">batch</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># Dispatch: tokens -&gt; slots</span>
+        <span class="n">dispatch_weights</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dispatch</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [B, S, num_slots]</span>
+        <span class="n">slots</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bsd,bsn-&gt;bnd&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">dispatch_weights</span><span class="p">)</span>
+
+        <span class="c1"># Process through experts</span>
+        <span class="n">expert_outputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">expert</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">:</span>
+            <span class="n">expert_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expert</span><span class="p">(</span><span class="n">slots</span><span class="p">))</span>
+
+        <span class="c1"># Weighted combination</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">expert_outputs</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">)</span>
+
+        <span class="c1"># Combine: slots -&gt; tokens</span>
+        <span class="n">combine_weights</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">combine</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># [B, S, num_slots]</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bnd,bsn-&gt;bsd&#39;</span><span class="p">,</span> <span class="n">combined</span><span class="p">,</span> <span class="n">combine_weights</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<h3 id="_9">连续路由空间</h3>
+<p><strong>可微分路由</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">DifferentiableRouter</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">router</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">router</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Soft routing with learnable temperature</span>
+        <span class="n">routing_weights</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logits</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Entropy regularization for exploration</span>
+        <span class="n">entropy</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">routing_weights</span> <span class="o">*</span> <span class="n">routing_weights</span><span class="o">.</span><span class="n">log</span><span class="p">())</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">routing_weights</span><span class="p">,</span> <span class="n">entropy</span>
+</code></pre></div>
+
+<h3 id="expert_4">动态Expert生成</h3>
+<p><strong>Meta-learning Expert</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MetaExpert</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># 超网络生成expert参数</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hyper_net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="n">d_model</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="c1"># 根据context生成expert参数</span>
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># 生成权重</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hyper_net</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+
+        <span class="c1"># 应用生成的expert</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">weights</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<h3 id="conditional-computation">Conditional Computation</h3>
+<p><strong>条件计算图</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ConditionalMoE</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">condition_dim</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># 条件编码器</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition_encoder</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">condition_dim</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+
+        <span class="c1"># 条件化experts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">ConditionalExpert</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">condition</span><span class="p">):</span>
+        <span class="c1"># 编码条件</span>
+        <span class="n">cond_embedding</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">condition_encoder</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
+
+        <span class="c1"># 条件化路由</span>
+        <span class="n">router_logits</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bsd,d-&gt;bs&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">cond_embedding</span><span class="p">)</span>
+
+        <span class="c1"># Soft routing</span>
+        <span class="n">routing_weights</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">router_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># 加权组合</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">expert</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">):</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">routing_weights</span><span class="p">[:,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="n">output</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">expert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cond_embedding</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<h2 id="_10">本章小结</h2>
+<p>本章系统介绍了MoE架构在视频自回归模型中的设计与优化：</p>
+<p><strong>关键概念</strong>：</p>
+<ol>
+<li><strong>MoE原理</strong>：稀疏激活、条件计算、容量vs计算解耦</li>
+<li><strong>Expert设计</strong>：粒度选择、数量权衡、容量分配</li>
+<li><strong>Router机制</strong>：负载均衡、选择策略、确定性vs随机</li>
+<li><strong>知识共享</strong>：Common expert、参数共享、蒸馏</li>
+<li><strong>训练稳定性</strong>：辅助损失、初始化、渐进训练</li>
+</ol>
+<p><strong>核心公式</strong>：</p>
+<ul>
+<li>MoE输出：$y = \sum_{i \in \text{TopK}} g_i(x) \cdot E_i(x)$</li>
+<li>负载均衡：$\mathcal{L}_{balance} = N \cdot \sum_i f_i \cdot P_i$</li>
+<li>Router z-loss：$\mathcal{L}_z = \sum_{ij} \log^2(1 + e^{x_{ij}})$</li>
+<li>Soft MoE：$y = \sum_i \text{Softmax}(\phi(x, E_i)) \cdot E_i(x)$</li>
+</ul>
+<p><strong>核心论文</strong>：</p>
+<ol>
+<li>[GShard] <strong>GShard: Scaling Giant Models with Conditional Computation</strong>, ICLR 2021</li>
+<li>[Switch Transformer] <strong>Switch Transformers: Scaling to Trillion Parameter Models</strong>, JMLR 2022</li>
+<li>[Expert Choice] <strong>Mixture-of-Experts with Expert Choice Routing</strong>, NeurIPS 2022</li>
+<li>[Soft MoE] <strong>From Sparse to Soft Mixtures of Experts</strong>, ICLR 2024</li>
+<li>[MoE Scale] <strong>Unified Scaling Laws for Routed Language Models</strong>, ICML 2022</li>
+</ol>
+<h2 id="gotchas">常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1">1. 负载不均衡</h3>
+<p><strong>问题</strong>：少数experts处理大部分tokens
+<strong>症状</strong>：计算效率低，部分experts未充分训练
+<strong>解决</strong>：</p>
+<ul>
+<li>增加负载均衡损失权重</li>
+<li>使用expert-choice routing</li>
+<li>添加噪声打破对称性</li>
+</ul>
+<h3 id="2-router">2. Router坍缩</h3>
+<p><strong>问题</strong>：Router退化为固定模式
+<strong>症状</strong>：所有输入路由到同样experts
+<strong>解决</strong>：</p>
+<ul>
+<li>Router正则化（z-loss）</li>
+<li>Dropout和噪声注入</li>
+<li>温度退火策略</li>
+</ul>
+<h3 id="3">3. 专家同质化</h3>
+<p><strong>问题</strong>：不同experts学到相似功能
+<strong>症状</strong>：模型容量未充分利用
+<strong>解决</strong>：</p>
+<ul>
+<li>多样性损失</li>
+<li>差异化初始化</li>
+<li>专家特化预训练</li>
+</ul>
+<h3 id="4">4. 训练不稳定</h3>
+<p><strong>问题</strong>：Loss震荡，难以收敛
+<strong>症状</strong>：训练曲线剧烈波动
+<strong>解决</strong>：</p>
+<ul>
+<li>降低学习率</li>
+<li>渐进激活experts</li>
+<li>每层独立梯度裁剪</li>
+</ul>
+<h3 id="5">5. 推理延迟增加</h3>
+<p><strong>问题</strong>：动态路由导致延迟不可预测
+<strong>症状</strong>：P99延迟远高于平均值
+<strong>解决</strong>：</p>
+<ul>
+<li>推理时固定路由</li>
+<li>缓存路由决策</li>
+<li>批处理优化</li>
+</ul>
+<h3 id="6">6. 内存碎片化</h3>
+<p><strong>问题</strong>：不规则dispatch导致内存碎片
+<strong>症状</strong>：OOM但显存未满
+<strong>解决</strong>：</p>
+<ul>
+<li>固定容量缓冲区</li>
+<li>内存池预分配</li>
+<li>Padding到固定大小</li>
+</ul>
+<h3 id="7">7. 通信开销</h3>
+<p><strong>问题</strong>：分布式训练all-to-all通信昂贵
+<strong>症状</strong>：多卡扩展效率低
+<strong>解决</strong>：</p>
+<ul>
+<li>Expert并行优化</li>
+<li>层级路由减少通信</li>
+<li>本地Expert优先</li>
+</ul>
+<h3 id="8">8. 量化困难</h3>
+<p><strong>问题</strong>：不同experts量化敏感度不同
+<strong>症状</strong>：量化后性能严重下降
+<strong>解决</strong>：</p>
+<ul>
+<li>Per-expert量化</li>
+<li>混合精度策略</li>
+<li>量化感知训练</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter5.html" class="nav-link prev">← 第5章：高效长序列注意力机制</a><a href="chapter7.html" class="nav-link next">第7章：多任务学习框架 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

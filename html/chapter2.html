@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>第2章：数据工程与质量控制</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型：原理与实践</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第1章：多传感器BEV特征融合</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第2章：数据工程与质量控制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第3章：时空采样与轨迹对齐</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第4章：视觉编码器与Tokenization</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第5章：高效长序列注意力机制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第6章：MoE架构与规模化</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第7章：多任务学习框架</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第8章：Video-Action联合建模</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第9章：预训练监控与可解释性</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第10章：监督微调策略（Supervised Fine-tuning Strategies）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第11章：强化学习优化（Reinforcement Learning Optimization）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-folder " data-level="0" >
+                        <div class="tree-folder-header">
+                            <span class="tree-arrow">▶</span>
+                            <span class="tree-icon"></span>
+                            <span class="tree-title">old</span>
+                        </div>
+                        <div class="tree-folder-content">
+                
+                    <div class="tree-item " style="padding-left: 20px;">
+                        <a href="old/index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型教科书</span>
+                        </a>
+                    </div>
+                </div></div></nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="2">第2章：数据工程与质量控制</h1>
+<p>大规模视频自回归模型的成功依赖于高质量、多样化的训练数据。本章深入探讨自动驾驶场景下的数据工程挑战，从海量数据的去重、多样性优化，到主动学习和数据飞轮的构建。我们将系统性地建立一套数据质量控制体系，确保模型能够从有限的计算资源中获得最大的学习收益。</p>
+<h2 id="21">2.1 大规模数据去重算法</h2>
+<h3 id="_1">去重的必要性与挑战</h3>
+<p>自动驾驶数据采集面临严重的冗余问题：</p>
+<ul>
+<li><strong>时间冗余</strong>：30fps视频中相邻帧相似度极高（&gt;95%）</li>
+<li><strong>空间冗余</strong>：高速公路等场景高度重复</li>
+<li><strong>车队冗余</strong>：多辆车经过同一路段产生相似数据</li>
+</ul>
+<p>数据规模挑战：</p>
+<div class="codehilite"><pre><span></span><code>数据源         日增量        累计规模       去重需求
+────────────────────────────────────────────────────
+测试车队       10TB/天       PB级别        90%去重率
+众包车辆       100TB/天      10PB级别      95%去重率
+仿真数据       1TB/天        100TB级别     70%去重率
+</code></pre></div>
+
+<h3 id="_2">多级去重架构</h3>
+<p><strong>Level 1: 帧级去重</strong></p>
+<p>感知哈希（Perceptual Hash）快速筛选：</p>
+<div class="codehilite"><pre><span></span><code>Image ──&gt; Resize(64x64) ──&gt; DCT ──&gt; Quantize ──&gt; Hash(64bit)
+                │                        │
+                ↓                        ↓
+         减少计算量              保留主要特征
+</code></pre></div>
+
+<p>汉明距离判定相似度：
+$$d_{hamming}(h_1, h_2) = \sum_{i=1}^{64} h_1[i] \oplus h_2[i]$$
+当$d_{hamming} &lt; \tau$（典型值5-10）时认为重复。</p>
+<p><strong>Level 2: 片段级去重</strong></p>
+<p>视频片段特征提取：
+$$\mathbf{v}_{clip} = \text{Pool}([f_1, f_2, ..., f_T])$$
+其中Pool可以是：</p>
+<ul>
+<li>Mean pooling：捕获平均特征</li>
+<li>Max pooling：捕获显著特征</li>
+<li>Temporal attention：自适应加权</li>
+</ul>
+<p>MinHash实现高效相似度估计：
+$$P(h_{min}(A) = h_{min}(B)) = \frac{|A \cap B|}{|A \cup B|} = J(A, B)$$
+使用k个独立哈希函数，Jaccard相似度估计误差为$O(1/\sqrt{k})$。</p>
+<p><strong>Level 3: 轨迹级去重</strong></p>
+<p>GPS轨迹相似度度量：
+$$d_{traj} = \text{DTW}(T_1, T_2) + \lambda \cdot d_{Fréchet}(T_1, T_2)$$
+其中DTW处理时间对齐，Fréchet距离保持空间形状。</p>
+<h3 id="_3">分布式去重实现</h3>
+<p><strong>LSH森林索引</strong>：</p>
+<div class="codehilite"><pre><span></span><code>新数据 ──&gt; 多个LSH函数 ──&gt; 哈希桶
+             │                │
+             ↓                ↓
+        降维投影         候选集合
+             │                │
+             └────&gt; 精确匹配 &lt;─┘
+</code></pre></div>
+
+<p>LSH函数设计（for cosine similarity）：
+$$h(\mathbf{v}) = \text{sign}(\mathbf{r}^T \mathbf{v})$$
+其中$\mathbf{r}$从高斯分布采样。</p>
+<p><strong>分布式处理流程</strong>：</p>
+<ol>
+<li><strong>分片策略</strong>：按时空网格划分</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>Grid(lat, lon, time) ──&gt; Shard_ID
+</code></pre></div>
+
+<ol start="2">
+<li><strong>并行去重</strong>：</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>Map Phase:  Data ──&gt; Feature ──&gt; (Hash, Data_ID)
+Reduce Phase: Group by Hash ──&gt; Deduplicate
+</code></pre></div>
+
+<ol start="3">
+<li><strong>增量更新</strong>：
+   维护Bloom Filter快速预过滤：
+$$P_{false_positive} = (1 - e^{-kn/m})^k$$
+其中k为哈希函数数，n为元素数，m为位数组大小。</li>
+</ol>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>感知哈希：64-128位足够</li>
+<li>MinHash签名：128-256个置换</li>
+<li>LSH森林：32-64棵树</li>
+<li>Bloom Filter：10倍预期容量，k=7</li>
+</ul>
+<h3 id="_4">时序一致性去重</h3>
+<p><strong>滑动窗口去重</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Window</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="n">W</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span> <span class="err">──</span><span class="o">&gt;</span> <span class="n">Check</span> <span class="n">similarity</span> <span class="k">with</span> <span class="n">t</span><span class="o">+</span><span class="mi">1</span>
+         <span class="err">│</span>                    <span class="err">│</span>
+         <span class="err">↓</span>                    <span class="err">↓</span>
+    <span class="n">Historical</span>            <span class="n">New</span> <span class="n">frame</span>
+      <span class="n">buffer</span>              <span class="n">candidate</span>
+</code></pre></div>
+
+<p><strong>关键帧提取</strong>：
+基于信息增益选择关键帧：
+$$I(f_t) = H(f_t|f_{<t}) = -\sum\_i p\_i \log p\_i$$
+当$I(f\_t) > \tau_{info}$时保留为关键帧。</p>
+<p><strong>场景变化检测</strong>：
+使用LSTM预测下一帧，预测误差大表示场景变化：
+$$\Delta_t = |f_t - \hat{f}_t|_2 &gt; \tau_{change}$$</p>
+<h2 id="22">2.2 数据多样性度量与优化</h2>
+<h3 id="_5">多样性的多维度定义</h3>
+<p>数据多样性不是单一指标，需要从多个维度综合评估：</p>
+<p><strong>维度分解</strong>：</p>
+<div class="codehilite"><pre><span></span><code>多样性维度        描述                     度量方法
+─────────────────────────────────────────────────────
+场景多样性        天气/光照/地点           熵、覆盖率
+对象多样性        车辆/行人/物体类别       类别分布、稀有度
+行为多样性        驾驶行为/交互模式        轨迹聚类、动作空间
+时序多样性        速度/加速度分布          统计矩、分布距离
+语义多样性        道路类型/交通状况        场景图多样性
+</code></pre></div>
+
+<h3 id="_6">特征空间多样性度量</h3>
+<p><strong>嵌入空间覆盖度</strong>：
+使用预训练编码器将数据映射到特征空间：
+$$\mathbf{z} = \text{Encoder}(\mathbf{x})$$
+计算特征空间的覆盖度：
+$$\text{Coverage} = \frac{|\text{VoronoiCell}(\mathcal{Z})|}{|\mathcal{Z}_{total}|}$$
+<strong>核密度估计</strong>：
+$$\hat{p}(\mathbf{z}) = \frac{1}{n h^d} \sum_{i=1}^n K\left(\frac{\mathbf{z} - \mathbf{z}_i}{h}\right)$$
+多样性度量为熵：
+$$H = -\int \hat{p}(\mathbf{z}) \log \hat{p}(\mathbf{z}) d\mathbf{z}$$
+<strong>最远点采样（FPS）</strong>：
+迭代选择距离已选集合最远的点：
+$$\mathbf{z}_{next} = \arg\max_{\mathbf{z} \in \mathcal{Z}} \min_{\mathbf{z}_i \in \mathcal{S}} d(\mathbf{z}, \mathbf{z}_i)$$
+FPS保证了空间的均匀覆盖。</p>
+<h3 id="_7">场景级多样性优化</h3>
+<p><strong>场景图表示</strong>：</p>
+<div class="codehilite"><pre><span></span><code>Scene Graph: G = (V, E)
+
+<span class="k">-</span> V: {road, vehicle, pedestrian, traffic_sign, ...}
+<span class="k">-</span> E: {near, on, crossing, following, ...}
+</code></pre></div>
+
+<p>场景图编辑距离：
+$$d_{GED}(G_1, G_2) = \min_{P \in \mathcal{P}} \sum_{op \in P} c(op)$$
+其中$\mathcal{P}$为所有可能的编辑路径。</p>
+<p><strong>场景聚类与平衡采样</strong>：</p>
+<ol>
+<li>K-means++初始化保证聚类中心分散</li>
+<li>每个聚类采样数量反比于聚类大小：
+$$n_i = N \cdot \frac{1/|C_i|^{\alpha}}{\sum_j 1/|C_j|^{\alpha}}$$
+其中$\alpha \in [0.5, 1]$控制平衡程度。</li>
+</ol>
+<p><strong>稀有场景加权</strong>：
+$$w(\mathbf{x}) = \frac{1}{\hat{p}(\mathbf{x})^\beta}$$
+其中$\beta$控制对稀有样本的重视程度。</p>
+<h3 id="_8">时序多样性优化</h3>
+<p><strong>动作空间覆盖</strong>：
+将连续动作空间离散化为网格：</p>
+<div class="codehilite"><pre><span></span><code>Steering: [-1, -0.5, 0, 0.5, 1]
+Throttle: [0, 0.3, 0.6, 1.0]
+Brake:    [0, 0.5, 1.0]
+</code></pre></div>
+
+<p>统计动作组合覆盖率：
+$$\text{ActionCoverage} = \frac{|\text{VisitedCells}|}{|\text{TotalCells}|}$$
+<strong>轨迹多样性</strong>：
+使用DTW聚类轨迹：
+$$\text{DTW}(T_1, T_2) = \min_{\pi} \sum_{(i,j) \in \pi} d(t_1^i, t_2^j)$$
+选择每个聚类的代表性轨迹。</p>
+<p><strong>速度分布匹配</strong>：
+使用Wasserstein距离度量分布差异：
+$$W_2(P, Q) = \left(\inf_{\gamma \in \Gamma(P,Q)} \int |\mathbf{x} - \mathbf{y}|^2 d\gamma(\mathbf{x}, \mathbf{y})\right)^{1/2}$$
+优化采样使得训练集速度分布接近目标分布。</p>
+<h3 id="_9">主动多样性采集</h3>
+<p><strong>不确定性引导</strong>：
+模型预测不确定性高的区域需要更多数据：
+$$U(\mathbf{x}) = H[p(y|\mathbf{x})] = -\sum_y p(y|\mathbf{x}) \log p(y|\mathbf{x})$$
+<strong>预期模型改变（EMC）</strong>：
+估计新样本对模型的影响：
+$$\text{EMC}(\mathbf{x}) = |\nabla_\theta \mathcal{L}(\mathbf{x})|_2$$
+梯度范数大表示该样本能显著改变模型。</p>
+<p><strong>多样性奖励函数</strong>：
+$$R(\mathbf{x}) = \lambda_1 \cdot d_{min}(\mathbf{x}, \mathcal{D}) + \lambda_2 \cdot U(\mathbf{x}) + \lambda_3 \cdot \text{Rarity}(\mathbf{x})$$
+其中$d_{min}$为到现有数据集的最小距离。</p>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>特征维度：512-2048维</li>
+<li>场景聚类数：1000-5000类</li>
+<li>稀有场景权重：10-100倍</li>
+<li>不确定性阈值：熵的80分位数</li>
+</ul>
+<h2 id="23">2.3 高价值场景挖掘</h2>
+<h3 id="_10">价值定义与量化</h3>
+<p>高价值场景的多维度定义：</p>
+<p><strong>安全关键性</strong>：</p>
+<div class="codehilite"><pre><span></span><code>场景类型              权重    示例
+─────────────────────────────────────────
+紧急制动             10.0    AEB触发场景
+碰撞临界             8.0     TTC &lt; 2s
+违规行为             6.0     闯红灯、逆行
+复杂交互             5.0     多车博弈
+恶劣条件             4.0     雨雪雾、强光
+</code></pre></div>
+
+<p><strong>学习价值评估</strong>：
+$$V_{learn} = \alpha \cdot P_{error} + \beta \cdot I_{gradient} + \gamma \cdot R_{novel}$$
+其中：</p>
+<ul>
+<li>$P_{error}$：模型预测错误率</li>
+<li>$I_{gradient}$：梯度信息量</li>
+<li>$R_{novel}$：新颖性评分</li>
+</ul>
+<h3 id="_11">错误模式分析</h3>
+<p><strong>预测误差聚类</strong>：
+收集模型预测与真值的误差向量：
+$$\mathbf{e}_t = \mathbf{y}_t - \hat{\mathbf{y}}_t$$
+使用DBSCAN聚类发现系统性错误模式：</p>
+<div class="codehilite"><pre><span></span><code>DBSCAN(ε, MinPts) ──&gt; Error Clusters
+         │                    │
+         ↓                    ↓
+   密度可达性            错误模式
+</code></pre></div>
+
+<p><strong>因果分析</strong>：
+构建错误因果图：
+$$P(\text{Error}|\text{Conditions}) = \frac{P(\text{Conditions}|\text{Error}) \cdot P(\text{Error})}{P(\text{Conditions})}$$
+识别导致错误的关键条件组合。</p>
+<h3 id="_12">长尾分布挖掘</h3>
+<p><strong>重尾建模</strong>：
+使用Pareto分布建模长尾：
+$$P(X &gt; x) = \left(\frac{x_m}{x}\right)^\alpha$$
+其中$\alpha$控制尾部厚度，典型值1.5-2.5。</p>
+<p><strong>异常检测方法</strong>：</p>
+<ol>
+<li>
+<p><strong>Isolation Forest</strong>：
+   通过随机划分隔离异常点：
+$$s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}$$
+其中$h(x)$为隔离路径长度。</p>
+</li>
+<li>
+<p><strong>VAE重构误差</strong>：
+$$\mathcal{A}(\mathbf{x}) = |\mathbf{x} - \text{Decoder}(\text{Encoder}(\mathbf{x}))|_2$$
+重构误差大表示异常。</p>
+</li>
+<li>
+<p><strong>OOD检测</strong>：
+   使用能量分数：
+$$E(\mathbf{x}) = -T \cdot \log \sum_y \exp(f_y(\mathbf{x})/T)$$</p>
+</li>
+</ol>
+<h3 id="_13">交互复杂度评估</h3>
+<p><strong>图复杂度度量</strong>：
+构建交通参与者交互图：</p>
+<div class="codehilite"><pre><span></span><code>G_t = (V_t, E_t)
+V_t: agents at time t
+E_t: interactions (distance &lt; threshold)
+</code></pre></div>
+
+<p>复杂度指标：</p>
+<ul>
+<li>节点度分布熵：$H(deg) = -\sum_k p_k \log p_k$</li>
+<li>聚类系数：$C = \frac{3 \times \text{triangles}}{\text{connected triples}}$</li>
+<li>介数中心性：$BC(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}}$</li>
+</ul>
+<p><strong>时序交互模式</strong>：
+使用注意力矩阵量化交互强度：
+$$A_{ij}^t = \text{softmax}\left(\frac{Q_i^t \cdot K_j^t}{\sqrt{d_k}}\right)$$
+交互复杂度：
+$$\mathcal{C}_t = -\sum_{i,j} A_{ij}^t \log A_{ij}^t$$</p>
+<h3 id="_14">仿真增强挖掘</h3>
+<p><strong>基于仿真的扰动</strong>：
+对真实场景施加扰动生成变体：</p>
+<div class="codehilite"><pre><span></span><code>Real Scene ──&gt; Perturbation ──&gt; Variants
+                   │                │
+                   ↓                ↓
+              速度±20%        生成10个变体
+              位置±2m         评估鲁棒性
+</code></pre></div>
+
+<p><strong>反事实生成</strong>：
+$$\mathbf{x}_{cf} = \arg\min_{\mathbf{x}'} d(\mathbf{x}, \mathbf{x}') + \lambda \cdot \mathbb{1}[f(\mathbf{x}') \neq f(\mathbf{x})]$$
+寻找最小改变导致不同结果的场景。</p>
+<p><strong>场景插值</strong>：
+在latent space插值生成中间场景：
+$$\mathbf{z}_{interp} = (1-\alpha) \cdot \mathbf{z}_1 + \alpha \cdot \mathbf{z}_2$$
+$$\mathbf{x}_{new} = \text{Decoder}(\mathbf{z}_{interp})$$
+<strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>错误聚类：DBSCAN ε=0.5, MinPts=10</li>
+<li>异常阈值：99.5分位数</li>
+<li>交互距离阈值：10米</li>
+<li>扰动范围：关键参数的±20%</li>
+</ul>
+<h2 id="24-fleet-trigger">2.4 Fleet Trigger与主动学习</h2>
+<h3 id="fleet-trigger">Fleet Trigger架构</h3>
+<p><strong>分布式触发系统</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Edge</span><span class="w"> </span><span class="n">Model</span><span class="w"> </span><span class="err">──</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Trigger</span><span class="w"> </span><span class="n">Condition</span><span class="w"> </span><span class="err">──</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Cloud</span><span class="w"> </span><span class="n">Upload</span>
+<span class="w">     </span><span class="err">│</span><span class="w">              </span><span class="err">│</span><span class="w">                      </span><span class="err">│</span>
+<span class="w">     </span><span class="err">↓</span><span class="w">              </span><span class="err">↓</span><span class="w">                      </span><span class="err">↓</span>
+<span class="w"> </span><span class="err">轻量推理</span><span class="w">      </span><span class="err">满足条件?</span><span class="w">            </span><span class="err">高价值数据</span>
+<span class="w">                    </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">├─</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Uncertainty</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="err">τ</span>
+<span class="w">                    </span><span class="err">├─</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Anomaly</span><span class="w"> </span><span class="n">Score</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="err">θ</span>
+<span class="w">                    </span><span class="err">└─</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Safety</span><span class="w"> </span><span class="n">Critical</span>
+</code></pre></div>
+
+<p><strong>触发条件设计</strong>：</p>
+<ol>
+<li>
+<p><strong>不确定性触发</strong>：
+$$\text{Trigger}_{uncertainty} = \mathbb{1}[H(p(y|x)) &gt; \tau_H]$$</p>
+</li>
+<li>
+<p><strong>预测分歧触发</strong>：
+   多模型ensemble分歧：
+$$\text{Disagreement} = \text{Var}[\{f_i(x)\}_{i=1}^M] &gt; \tau_{var}$$</p>
+</li>
+<li>
+<p><strong>安全边界触发</strong>：
+$$\text{Trigger}_{safety} = \mathbb{1}[\min(TTC, TTV, TTA) &lt; \tau_{safe}]$$</p>
+</li>
+<li>
+<p><strong>新颖性触发</strong>：
+$$\text{Trigger}_{novel} = \mathbb{1}[d(x, \mathcal{D}_{train}) &gt; \tau_{dist}]$$</p>
+</li>
+</ol>
+<h3 id="_15">边缘模型设计</h3>
+<p><strong>轻量化架构</strong>：</p>
+<div class="codehilite"><pre><span></span><code>Full Model (20B params) ──&gt; Distillation ──&gt; Edge Model (100M params)
+                                │                     │
+                                ↓                     ↓
+                          知识蒸馏              10% size
+                          特征对齐              50% accuracy
+</code></pre></div>
+
+<p><strong>多级决策树</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">safety_critical</span><span class="p">():</span>
+    <span class="n">trigger_immediately</span><span class="p">()</span>
+<span class="k">elif</span> <span class="n">uncertainty</span> <span class="o">&gt;</span> <span class="mf">0.8</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">compute_budget_available</span><span class="p">():</span>
+        <span class="n">run_detailed_check</span><span class="p">()</span>
+<span class="k">elif</span> <span class="n">novelty_score</span> <span class="o">&gt;</span> <span class="mf">0.9</span><span class="p">:</span>
+    <span class="n">sample_with_probability</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>资源约束优化</strong>：
+带宽限制下的优先级队列：
+$$\text{Priority}(x) = w_1 \cdot \text{Safety} + w_2 \cdot \text{Learning} + w_3 \cdot \text{Novelty}$$
+选择top-k样本满足：
+$$\sum_{i=1}^k \text{Size}(x_i) \leq B_{max}$$</p>
+<h3 id="_16">主动学习策略</h3>
+<p><strong>查询策略</strong>：</p>
+<ol>
+<li>
+<p><strong>最大熵采样</strong>：
+$$x^* = \arg\max_x H[p(y|x)]$$</p>
+</li>
+<li>
+<p><strong>BALD（Bayesian Active Learning by Disagreement）</strong>：
+$$x^* = \arg\max_x I(y; \theta|x) = H[p(y|x)] - E_{p(\theta|D)}[H[p(y|x,\theta)]]$$</p>
+</li>
+<li>
+<p><strong>核心集选择</strong>：
+   最小化最大距离：
+$$\min_S \max_{x \in \mathcal{U}} \min_{s \in S} d(x, s)$$
+<strong>批量主动学习</strong>：
+避免冗余的多样性批选择：
+$$S^* = \arg\max_S \sum_{x \in S} U(x) - \lambda \sum_{x_i, x_j \in S} \text{Sim}(x_i, x_j)$$</p>
+</li>
+</ol>
+<h3 id="_17">在线学习与更新</h3>
+<p><strong>增量学习框架</strong>：</p>
+<div class="codehilite"><pre><span></span><code>New Data ──&gt; Validation ──&gt; Incremental Training ──&gt; A/B Test
+                │                    │                    │
+                ↓                    ↓                    ↓
+           质量检查           避免灾难遗忘         性能验证
+</code></pre></div>
+
+<p><strong>Experience Replay Buffer</strong>：
+维护关键历史数据：
+$$\mathcal{B} = \mathcal{B}_{old} \cup \mathcal{B}_{new}$$
+采样策略：
+$$p(x) \propto \text{Age}(x)^{-\alpha} \cdot \text{Importance}(x)^\beta$$
+<strong>持续学习正则化</strong>：
+EWC（Elastic Weight Consolidation）：
+$$\mathcal{L}_{total} = \mathcal{L}_{new} + \lambda \sum_i F_i (\theta_i - \theta_i^*)^2$$
+其中$F_i$为Fisher信息矩阵对角元。</p>
+<h3 id="_18">反馈闭环设计</h3>
+<p><strong>性能监控指标</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Metric</span><span class="w">              </span><span class="n">Target</span><span class="w">    </span><span class="n">Alert</span><span class="w"> </span><span class="n">Threshold</span>
+<span class="err">──────────────────────────────────────────────</span>
+<span class="n">Trigger</span><span class="w"> </span><span class="n">Rate</span><span class="w">        </span><span class="mi">1</span><span class="o">-</span><span class="mi">5</span><span class="o">%</span><span class="w">      </span><span class="o">&gt;</span><span class="mi">10</span><span class="o">%</span>
+<span class="n">Upload</span><span class="w"> </span><span class="n">Success</span><span class="w">      </span><span class="o">&gt;</span><span class="mi">95</span><span class="o">%</span><span class="w">      </span><span class="o">&lt;</span><span class="mi">90</span><span class="o">%</span>
+<span class="n">Label</span><span class="w"> </span><span class="n">Quality</span><span class="w">       </span><span class="o">&gt;</span><span class="mi">98</span><span class="o">%</span><span class="w">      </span><span class="o">&lt;</span><span class="mi">95</span><span class="o">%</span>
+<span class="n">Model</span><span class="w"> </span><span class="n">Improvement</span><span class="w">   </span><span class="o">&gt;</span><span class="mi">1</span><span class="o">%/</span><span class="n">week</span><span class="w">  </span><span class="o">&lt;</span><span class="mf">0.5</span><span class="o">%/</span><span class="n">week</span>
+</code></pre></div>
+
+<p><strong>自适应阈值调整</strong>：
+基于历史性能动态调整触发阈值：
+$$\tau_{t+1} = \tau_t + \eta \cdot (\text{Target} - \text{Actual})$$
+使用PID控制器稳定调整：
+$$\tau_{t+1} = \tau_t + K_p e_t + K_i \sum_{i=0}^t e_i + K_d (e_t - e_{t-1})$$
+<strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>边缘模型大小：&lt;200MB</li>
+<li>推理延迟：&lt;50ms</li>
+<li>触发率：1-5%</li>
+<li>批量大小：32-128样本</li>
+<li>更新频率：周级别</li>
+</ul>
+<h2 id="25">2.5 数据飞轮与持续改进</h2>
+<h3 id="_19">数据飞轮机制</h3>
+<p><strong>闭环系统设计</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">Deploy</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Collect</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Label</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Train</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Evaluate</span>
+<span class="w">  </span>↑<span class="w">                                           </span>│
+<span class="w">  </span>└───────────────────────────────────────────┘
+<span class="w">                    </span><span class="nv">Continuous</span><span class="w"> </span><span class="k">Loop</span>
+</code></pre></div>
+
+<p><strong>飞轮加速因子</strong>：</p>
+<ol>
+<li><strong>规模效应</strong>：更多用户→更多数据→更好模型→吸引更多用户</li>
+<li><strong>质量提升</strong>：错误case→targeted collection→修复问题→减少错误</li>
+<li><strong>效率优化</strong>：自动标注→人工验证→标注模型改进→降低成本</li>
+</ol>
+<h3 id="_20">自动标注系统</h3>
+<p><strong>多模型交叉验证</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">predictions</span> <span class="o">=</span> <span class="p">[</span><span class="n">model_i</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">model_i</span> <span class="ow">in</span> <span class="n">models</span><span class="p">]</span>
+<span class="n">confidence</span> <span class="o">=</span> <span class="n">agreement_score</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">confidence</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+    <span class="n">auto_label</span> <span class="o">=</span> <span class="n">majority_vote</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">send_to_human_labeling</span><span class="p">()</span>
+</code></pre></div>
+
+<p><strong>伪标签质量控制</strong>：
+$$\text{Quality}(y_{pseudo}) = \text{Confidence} \times \text{Consistency} \times \text{Diversity}$$
+其中：</p>
+<ul>
+<li>Confidence：模型置信度</li>
+<li>Consistency：时序一致性</li>
+<li>Diversity：与已有数据的差异</li>
+</ul>
+<p><strong>教师-学生框架</strong>：
+$$\mathcal{L}_{student} = \mathcal{L}_{supervised} + \lambda \cdot \mathcal{L}_{distill}$$
+$$\mathcal{L}_{distill} = \text{KL}(p_{student} || p_{teacher})$$</p>
+<h3 id="_21">版本管理与回滚</h3>
+<p><strong>数据版本控制</strong>：</p>
+<div class="codehilite"><pre><span></span><code>Dataset_v1.0 ──&gt; Dataset_v1.1 ──&gt; Dataset_v2.0
+      │              │                  │
+      ↓              ↓                  ↓
+  Model_v1.0    Model_v1.1        Model_v2.0
+      │              │                  │
+      └──&gt; Metrics &lt;─┴──────────────────┘
+</code></pre></div>
+
+<p><strong>增量更新策略</strong>：</p>
+<ul>
+<li>Delta encoding：只存储变化部分</li>
+<li>Merkle tree：快速验证数据完整性</li>
+<li>Git-like branching：支持实验分支</li>
+</ul>
+<p><strong>回滚机制</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">performance_degradation_detected</span><span class="p">():</span>
+    <span class="n">rollback_to_previous_version</span><span class="p">()</span>
+    <span class="n">analyze_root_cause</span><span class="p">()</span>
+    <span class="n">fix_and_retrain</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="_22">质量度量体系</h3>
+<p><strong>多层次评估</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">Level</span><span class="w">           </span><span class="nv">Metrics</span><span class="w">                  </span><span class="nv">Frequency</span>
+────────────────────────────────────────────────
+<span class="nv">Sample</span><span class="o">-</span><span class="nv">level</span><span class="w">    </span><span class="nv">Accuracy</span>,<span class="w"> </span><span class="nv">Confidence</span><span class="w">     </span><span class="nv">Real</span><span class="o">-</span><span class="nv">time</span>
+<span class="nv">Batch</span><span class="o">-</span><span class="nv">level</span><span class="w">     </span><span class="nv">Distribution</span><span class="w"> </span><span class="nv">shift</span><span class="w">       </span><span class="nv">Hourly</span>
+<span class="nv">Version</span><span class="o">-</span><span class="nv">level</span><span class="w">   </span><span class="nv">Overall</span><span class="w"> </span><span class="nv">performance</span><span class="w">      </span><span class="nv">Daily</span>
+<span class="nv">System</span><span class="o">-</span><span class="nv">level</span><span class="w">    </span><span class="k">End</span><span class="o">-</span><span class="nv">to</span><span class="o">-</span><span class="k">end</span><span class="w"> </span><span class="nv">metrics</span><span class="w">       </span><span class="nv">Weekly</span>
+</code></pre></div>
+
+<p><strong>分布偏移检测</strong>：
+使用MMD（Maximum Mean Discrepancy）：
+$$\text{MMD}^2 = |\mu_P - \mu_Q|_{\mathcal{H}}^2$$
+当MMD超过阈值时触发重训练。</p>
+<p><strong>长期趋势分析</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 指数平滑预测</span>
+<span class="n">trend</span> <span class="o">=</span> <span class="n">exponential_smoothing</span><span class="p">(</span><span class="n">historical_metrics</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">trend</span><span class="o">.</span><span class="n">slope</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">investigate_degradation_cause</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="_23">成本优化策略</h3>
+<p><strong>标注成本模型</strong>：
+$$C_{total} = C_{human} \cdot N_{human} + C_{compute} \cdot N_{auto} + C_{verify} \cdot N_{verify}$$
+优化目标：
+$$\min C_{total} \text{ s.t. } \text{Quality} &gt; Q_{min}$$
+<strong>主动学习ROI</strong>：
+$$\text{ROI} = \frac{\Delta \text{Performance}}{C_{annotation} + C_{training}}$$
+优先标注高ROI样本。</p>
+<p><strong>计算资源调度</strong>：</p>
+<ul>
+<li>峰谷错峰训练</li>
+<li>Spot instance利用</li>
+<li>模型并行与数据并行混合</li>
+</ul>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>自动标注比例：&gt;70%</li>
+<li>人工验证比例：10-20%</li>
+<li>数据增长率：10%/月</li>
+<li>模型更新周期：1-2周</li>
+<li>性能提升目标：1%/月</li>
+</ul>
+<h2 id="corner-case">高级话题：对抗样本生成与Corner Case合成</h2>
+<h3 id="_24">对抗性数据增强</h3>
+<p><strong>梯度对抗扰动</strong>：
+生成最坏情况扰动：
+$$\mathbf{x}_{adv} = \mathbf{x} + \epsilon \cdot \text{sign}(\nabla_\mathbf{x} \mathcal{L}(f(\mathbf{x}), y))$$
+对于视频序列，考虑时序一致性：
+$$\mathbf{x}_t^{adv} = \mathbf{x}_t + \epsilon \cdot \text{sign}(\nabla_{\mathbf{x}_t} \mathcal{L} + \lambda \cdot |\mathbf{x}_t^{adv} - \mathbf{x}_{t-1}^{adv}|_2)$$
+<strong>物理世界对抗样本</strong>：
+考虑真实世界约束：</p>
+<div class="codehilite"><pre><span></span><code>Digital Perturbation ──&gt; Physical Constraints ──&gt; Realizable Attack
+         │                        │                      │
+         ↓                        ↓                      ↓
+    像素级扰动              光照/遮挡限制          可实现攻击
+</code></pre></div>
+
+<p>约束优化问题：
+$$\min_\delta \mathcal{L}_{adv} \text{ s.t. } \delta \in \mathcal{C}_{physical}$$
+其中$\mathcal{C}_{physical}$包含：</p>
+<ul>
+<li>光照变化范围</li>
+<li>几何形变限制</li>
+<li>运动模糊约束</li>
+</ul>
+<h3 id="corner-case_1">生成式Corner Case合成</h3>
+<p><strong>条件VAE生成</strong>：
+$$p(z|y_{rare}) \sim \mathcal{N}(\mu_\phi(y_{rare}), \sigma_\phi^2(y_{rare}))$$
+$$x_{synthetic} = g_\theta(z, y_{rare})$$
+针对稀有类别$y_{rare}$生成新样本。</p>
+<p><strong>场景组合生成</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 组合不同元素生成新场景</span>
+<span class="n">weather</span> <span class="o">=</span> <span class="n">sample</span><span class="p">([</span><span class="s1">&#39;rain&#39;</span><span class="p">,</span> <span class="s1">&#39;fog&#39;</span><span class="p">,</span> <span class="s1">&#39;snow&#39;</span><span class="p">])</span>
+<span class="n">lighting</span> <span class="o">=</span> <span class="n">sample</span><span class="p">([</span><span class="s1">&#39;night&#39;</span><span class="p">,</span> <span class="s1">&#39;dawn&#39;</span><span class="p">,</span> <span class="s1">&#39;backlight&#39;</span><span class="p">])</span>
+<span class="n">traffic</span> <span class="o">=</span> <span class="n">sample</span><span class="p">([</span><span class="s1">&#39;crowded&#39;</span><span class="p">,</span> <span class="s1">&#39;empty&#39;</span><span class="p">,</span> <span class="s1">&#39;mixed&#39;</span><span class="p">])</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">combine</span><span class="p">(</span><span class="n">weather</span><span class="p">,</span> <span class="n">lighting</span><span class="p">,</span> <span class="n">traffic</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Diffusion模型引导生成</strong>：
+$$\mathbf{x}_{t-1} = \frac{1}{\sqrt{\alpha_t}}(\mathbf{x}_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(\mathbf{x}_t, t)) + \sigma_t \mathbf{z}$$
+添加条件引导：
+$$\epsilon_\theta(\mathbf{x}_t, t, c) = \epsilon_\theta(\mathbf{x}_t, t) + s \cdot \nabla_{\mathbf{x}_t} \log p(c|\mathbf{x}_t)$$</p>
+<h3 id="_25">安全性验证生成</h3>
+<p><strong>形式化验证场景</strong>：
+定义安全属性$\phi$：
+$$\phi ::= \text{Always}(\text{distance} &gt; d_{min}) \land \text{Eventually}(\text{reach_goal})$$
+反例生成：
+$$\mathbf{x}_{counter} = \arg\min_\mathbf{x} d(\mathbf{x}, \mathcal{D}_{real}) \text{ s.t. } \neg\phi(\mathbf{x})$$
+<strong>蒙特卡洛树搜索（MCTS）</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">State</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Action</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="k">Next</span><span class="w"> </span><span class="nv">State</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Reward</span>
+<span class="w">  </span>│<span class="w">          </span>│<span class="w">            </span>│<span class="w">            </span>│
+<span class="w">  </span>↓<span class="w">          </span>↓<span class="w">            </span>↓<span class="w">            </span>↓
+场景配置<span class="w">   </span>参数调整<span class="w">    </span>新场景<span class="w">    </span>碰撞<span class="o">=-</span><span class="mi">1000</span>
+</code></pre></div>
+
+<p>通过MCTS搜索危险场景：
+$$UCB = \frac{Q(s,a)}{N(s,a)} + c\sqrt{\frac{\ln N(s)}{N(s,a)}}$$</p>
+<h3 id="_26">域随机化与泛化</h3>
+<p><strong>系统性域随机化</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">domains</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;texture&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">),</span>      <span class="c1"># 纹理强度</span>
+    <span class="s1">&#39;color&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>         <span class="c1"># 色调偏移</span>
+    <span class="s1">&#39;noise&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span>          <span class="c1"># 噪声水平</span>
+    <span class="s1">&#39;blur&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>             <span class="c1"># 运动模糊</span>
+    <span class="s1">&#39;weather&#39;</span><span class="p">:</span> <span class="n">categorical</span><span class="p">([</span><span class="o">...</span><span class="p">])</span>       <span class="c1"># 天气类型</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>域插值与外推</strong>：
+$$\mathcal{D}_{new} = (1-\alpha) \cdot \mathcal{D}_{source} + \alpha \cdot \mathcal{D}_{target}, \alpha \in [-0.2, 1.2]$$
+允许外推生成更极端场景。</p>
+<p><strong>对抗域适应</strong>：
+$$\mathcal{L} = \mathcal{L}_{task} - \lambda \cdot \mathcal{L}_{domain}$$</p>
+<p>使特征对域变化鲁棒。</p>
+<h2 id="_27">本章小结</h2>
+<p>本章系统介绍了自动驾驶视频模型的数据工程体系：</p>
+<p><strong>关键概念</strong>：</p>
+<ol>
+<li><strong>大规模去重</strong>：多级去重架构，从帧级到轨迹级</li>
+<li><strong>多样性优化</strong>：多维度评估与主动采样</li>
+<li><strong>高价值挖掘</strong>：错误分析、长尾检测、复杂度评估</li>
+<li><strong>Fleet Trigger</strong>：边缘计算与分布式数据收集</li>
+<li><strong>数据飞轮</strong>：闭环优化与持续改进</li>
+</ol>
+<p><strong>核心公式</strong>：</p>
+<ul>
+<li>感知哈希：$d_{hamming}(h_1, h_2) = \sum_{i=1}^{64} h_1[i] \oplus h_2[i]$</li>
+<li>多样性度量：$H = -\int \hat{p}(\mathbf{z}) \log \hat{p}(\mathbf{z}) d\mathbf{z}$</li>
+<li>主动学习：$x^* = \arg\max_x I(y; \theta|x)$</li>
+<li>对抗生成：$\mathbf{x}_{adv} = \mathbf{x} + \epsilon \cdot \text{sign}(\nabla_\mathbf{x} \mathcal{L})$</li>
+</ul>
+<p><strong>核心论文</strong>：</p>
+<ol>
+<li>[Active Learning] <strong>Active Learning for Deep Object Detection</strong>, ICCV 2019</li>
+<li>[Data Efficiency] <strong>Model-Agnostic Meta-Learning for Fast Adaptation</strong>, ICML 2017</li>
+<li>[Adversarial] <strong>Robust Physical-World Attacks on Deep Learning Visual Classification</strong>, CVPR 2018</li>
+<li>[Continual Learning] <strong>Elastic Weight Consolidation</strong>, PNAS 2017</li>
+<li>[Data Flywheel] <strong>Tesla AI Day: Data Engine and Auto-labeling</strong>, 2021</li>
+</ol>
+<h2 id="gotchas">常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1">1. 过度去重导致多样性损失</h3>
+<p><strong>问题</strong>：激进去重删除了有价值的细微差异
+<strong>症状</strong>：模型泛化性能下降，对细节变化不敏感
+<strong>解决</strong>：</p>
+<ul>
+<li>使用软去重（相似度加权）而非硬去重</li>
+<li>保留边界样本（相似度在阈值附近）</li>
+<li>定期评估去重对下游任务的影响</li>
+</ul>
+<h3 id="2_1">2. 标注噪声累积</h3>
+<p><strong>问题</strong>：自动标注错误通过数据飞轮放大
+<strong>症状</strong>：模型性能先升后降，出现系统性偏差
+<strong>解决</strong>：</p>
+<ul>
+<li>设置置信度阈值，低置信样本人工复核</li>
+<li>维护标注质量追踪系统</li>
+<li>定期清洗历史数据</li>
+</ul>
+<h3 id="3">3. 分布漂移未检测</h3>
+<p><strong>问题</strong>：真实世界分布缓慢变化未被察觉
+<strong>症状</strong>：线上性能逐渐退化
+<strong>解决</strong>：</p>
+<ul>
+<li>部署分布监控系统（MMD、KL散度）</li>
+<li>设置自动告警阈值</li>
+<li>定期重新评估和校准</li>
+</ul>
+<h3 id="4-fleet-trigger">4. Fleet Trigger过于敏感</h3>
+<p><strong>问题</strong>：触发率过高导致带宽和存储爆炸
+<strong>症状</strong>：数据上传量超预期，成本失控
+<strong>解决</strong>：</p>
+<ul>
+<li>动态调整触发阈值</li>
+<li>实施分级触发策略</li>
+<li>本地预过滤和采样</li>
+</ul>
+<h3 id="5">5. 对抗样本过拟合</h3>
+<p><strong>问题</strong>：过度优化对抗鲁棒性损害正常性能
+<strong>症状</strong>：对抗测试分数高但实际部署效果差
+<strong>解决</strong>：</p>
+<ul>
+<li>控制对抗训练比例（10-20%）</li>
+<li>使用多种对抗方法</li>
+<li>在真实数据上验证</li>
+</ul>
+<h3 id="6">6. 版本依赖混乱</h3>
+<p><strong>问题</strong>：数据版本与模型版本不匹配
+<strong>症状</strong>：重现实验失败，性能不一致
+<strong>解决</strong>：</p>
+<ul>
+<li>严格版本对应关系记录</li>
+<li>使用容器化环境</li>
+<li>自动化版本兼容性检查</li>
+</ul>
+<h3 id="7">7. 采样偏差放大</h3>
+<p><strong>问题</strong>：主动学习偏向某类场景
+<strong>症状</strong>：模型在特定场景过拟合
+<strong>解决</strong>：</p>
+<ul>
+<li>多目标优化采样策略</li>
+<li>设置各类场景配额</li>
+<li>定期重置采样分布</li>
+</ul>
+<h3 id="8">8. 计算资源浪费</h3>
+<p><strong>问题</strong>：重复计算相似样本的特征
+<strong>症状</strong>：训练时间过长，GPU利用率低
+<strong>解决</strong>：</p>
+<ul>
+<li>特征缓存机制</li>
+<li>增量特征更新</li>
+<li>相似样本批处理</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter1.html" class="nav-link prev">← 第1章：多传感器BEV特征融合</a><a href="chapter3.html" class="nav-link next">第3章：时空采样与轨迹对齐 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

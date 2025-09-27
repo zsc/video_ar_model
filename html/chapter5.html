@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>第5章：高效长序列注意力机制</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型：原理与实践</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第1章：多传感器BEV特征融合</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第2章：数据工程与质量控制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第3章：时空采样与轨迹对齐</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第4章：视觉编码器与Tokenization</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第5章：高效长序列注意力机制</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第6章：MoE架构与规模化</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第7章：多任务学习框架</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第8章：Video-Action联合建模</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第9章：预训练监控与可解释性</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第10章：监督微调策略（Supervised Fine-tuning Strategies）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">第11章：强化学习优化（Reinforcement Learning Optimization）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-folder " data-level="0" >
+                        <div class="tree-folder-header">
+                            <span class="tree-arrow">▶</span>
+                            <span class="tree-icon"></span>
+                            <span class="tree-title">old</span>
+                        </div>
+                        <div class="tree-folder-content">
+                
+                    <div class="tree-item " style="padding-left: 20px;">
+                        <a href="old/index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">自动驾驶视频自回归预测大模型教科书</span>
+                        </a>
+                    </div>
+                </div></div></nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="5">第5章：高效长序列注意力机制</h1>
+<p>处理自动驾驶场景的长视频序列是视频自回归模型面临的核心计算挑战。标准注意力机制的O(n²)复杂度在处理数千帧的视频时变得不可行。本章深入探讨各种高效注意力机制，包括线性注意力、稀疏模式、以及O(n log n)和O(n√n)复杂度的算法实现，为大规模视频建模提供实用的解决方案。</p>
+<h2 id="51">5.1 长序列建模的计算挑战</h2>
+<h3 id="_1">复杂度分析与瓶颈</h3>
+<p><strong>标准自注意力复杂度</strong>：</p>
+<div class="codehilite"><pre><span></span><code>操作              计算复杂度    内存复杂度    瓶颈类型
+───────────────────────────────────────────────────
+QK^T计算          O(n²d)       O(n²)        内存带宽
+Softmax          O(n²)        O(n²)        内存访问
+Attention×V      O(n²d)       O(n²)        计算密集
+总体             O(n²d)       O(n²+nd)     内存为主
+</code></pre></div>
+
+<p>其中n为序列长度，d为特征维度。</p>
+<p><strong>实际场景挑战</strong>：</p>
+<ul>
+<li>30fps视频，1分钟=1800帧</li>
+<li>每帧256个tokens</li>
+<li>总序列长度：460,800 tokens</li>
+<li>内存需求：~800GB（fp32）</li>
+</ul>
+<h3 id="-">计算-内存权衡</h3>
+<p><strong>Roofline模型分析</strong>：
+$$\text{Performance} = \min\left(\text{Peak_FLOPS}, \text{Peak_Bandwidth} \times \text{Arithmetic_Intensity}\right)$$
+算术强度：
+$$AI = \frac{\text{FLOPs}}{\text{Memory_Access}}$$
+对于注意力：$AI \approx \frac{2n^2d}{4nd + 4n^2} \approx \frac{d}{2}$</p>
+<p><strong>IO复杂度</strong>：
+从IO（输入/输出）的角度看，标准自注意力的瓶颈在于巨大的注意力矩阵 <code>A = QK^T</code>。在计算过程中，我们需要从高带宽内存（HBM）中读取Q, K, V（<code>O(nd)</code>），然后计算并写回大小为 <code>n x n</code> 的注意力矩阵（<code>O(n²)</code>），之后再将其读出与V相乘。这个 <code>O(n²)</code> 的读写开销是主要的IO瓶颈。</p>
+<p>像FlashAttention这样的分块注意力（Tiled/Blocked Attention）算法，通过将计算过程分解为块（Blocks）来优化IO。它将Q, K, V矩阵分割成小块，每次只将一小块数据加载到GPU核心上更快的SRAM中进行计算，计算完一个块的最终结果后，再写回HBM。通过这种方式，它避免了对整个 <code>n x n</code> 注意力矩阵的读写，从而将IO复杂度从 <code>O(n²)</code> 降低到近似 <code>O(nd)</code>，极大地提升了计算效率。</p>
+<h3 id="_2">长序列特有问题</h3>
+<p><strong>梯度消失/爆炸</strong>：
+$$\frac{\partial \mathcal{L}}{\partial h_0} = \prod_{t=1}^T \frac{\partial h_t}{\partial h_{t-1}}$$
+长序列导致梯度累积不稳定。</p>
+<p><strong>注意力退化</strong>：</p>
+<div class="codehilite"><pre><span></span><code>Attention entropy随序列长度增加：
+n=512:  H=6.2
+n=1024: H=7.8
+n=2048: H=8.9
+n=4096: H=9.6 (接近均匀分布)
+</code></pre></div>
+
+<p><strong>位置编码失效</strong>：
+超出训练长度后性能急剧下降。</p>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>序列长度&lt;1k：标准注意力</li>
+<li>1k-8k：稀疏/局部注意力</li>
+<li>8k-32k：线性注意力</li>
+<li>
+<blockquote>
+<p>32k：层级/压缩方法</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="52">5.2 线性注意力与稀疏模式</h2>
+<h3 id="_3">线性注意力机制</h3>
+<p><strong>核技巧（Kernel Trick）</strong>：
+将注意力重写为：
+$$\text{Attention}(Q,K,V) = \phi(Q)(\phi(K)^T V)$$
+其中$\phi$为特征映射。</p>
+<p><strong>Performer实现</strong>：
+使用随机特征近似：
+$$\phi(x) = \frac{1}{\sqrt{m}}\left[\exp\left(\omega_1^T x - |x|^2/2\right), ..., \exp\left(\omega_m^T x - |x|^2/2\right)\right]$$
+复杂度：$O(nmd)$，其中$m \ll n$。</p>
+<p><strong>Linear Transformer</strong>：
+$$Y = \frac{\phi(Q) \cdot (\phi(K)^T \cdot V)}{\phi(Q) \cdot \sum_i \phi(K_i)}$$
+分母为归一化项。</p>
+<h3 id="_4">稀疏注意力模式</h3>
+<p><strong>局部窗口注意力</strong>：
+局部窗口注意力（Local Window Attention）是最简单、最直接的一种稀疏注意力模式。它基于一个普遍的假设：在很多序列数据（如图像和视频）中，一个元素主要与其邻近的元素相关。</p>
+<p>该方法将全局的注意力计算限制在一个以当前token为中心的、固定大小的局部“窗口”（Window）内。对于序列中的每一个token <code>i</code>，它只计算与窗口内其他token（例如，从 <code>i - w/2</code> 到 <code>i + w/2</code>，其中 <code>w</code> 是窗口大小）的注意力权重，而忽略窗口外的所有其他token。</p>
+<p>通过这种方式，每个token的计算量从 <code>O(n*d)</code> 降低到了 <code>O(w*d)</code>，其中窗口大小 <code>w</code> 通常远小于序列总长 <code>n</code>。因此，总的计算复杂度从 <code>O(n²*d)</code> 降低到了 <code>O(n*w*d)</code>，变成了线性复杂度。这种方法在处理图像和视频等具有强局部性的数据时非常有效。</p>
+<p>复杂度：$O(n \cdot w \cdot d)$</p>
+<p><strong>跨步注意力（Strided Attention）</strong>：
+$$M_{ij} = \begin{cases}
+1 &amp; \text{if } |i-j| \bmod s = 0 \\
+0 &amp; \text{otherwise}
+\end{cases}$$
+每隔s个位置计算注意力。</p>
+<p><strong>Longformer模式</strong>：
+组合局部+全局注意力：</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Pattern</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">Local</span><span class="p">(</span><span class="nx">w</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="kd">Global</span><span class="p">(</span><span class="nx">tokens</span><span class="o">=</span><span class="err">[</span><span class="nx">CLS</span><span class="p">,</span><span class="w"> </span><span class="nx">SEP</span><span class="cp">]</span><span class="x">) + Dilated(r=2)</span>
+</code></pre></div>
+
+<h3 id="_5">混合注意力策略</h3>
+<p><strong>Big Bird架构</strong>：
+Big Bird是一种被证明在理论上和实践上都非常有效的混合注意力策略，它通过组合三种不同的稀疏注意力模式，来近似全局注意力的性能：</p>
+<ol>
+<li>
+<p><strong>随机注意力（Random Attention）</strong>：每个token都会随机地选择少数几个（例如，<code>r</code>个）其他token进行注意力计算。这有助于在整个序列中传递长程信息，保证了信息流的全局连通性。</p>
+</li>
+<li>
+<p><strong>窗口注意力（Window Attention）</strong>：每个token都会关注其邻近的一个固定大小窗口内的所有token。这部分负责捕捉数据的局部结构和依赖关系。</p>
+</li>
+<li>
+<p><strong>全局注意力（Global Attention）</strong>：在序列中，选择少数几个“重要”的token（例如，在NLP中是<code>[CLS]</code>，在视频中可能是代表场景摘要的token），让这些全局token可以关注序列中的所有其他token，同时也被所有其他token所关注。这确保了关键信息可以在整个序列中进行广播和汇集。</p>
+</li>
+</ol>
+<p>通过将这三种模式的注意力结果进行加权组合，Big Bird能够在保持线性计算复杂度的同时，有效地模拟出标准全局注意力的信息流动模式，从而在多种长序列任务上都取得了优异的性能。</p>
+<p><strong>Reformer (LSH注意力)</strong>：
+使用局部敏感哈希分桶：
+$$h(x) = \arg\max([xR_1, -xR_1, ..., xR_k, -xR_k])$$
+相似的向量大概率分到同一桶。</p>
+<p><strong>稀疏性自适应</strong>：
+固定的稀疏模式（如局部窗口）可能无法适应所有的数据和任务。自适应稀疏注意力（Adaptive Sparse Attention）旨在让模型自己学习应该关注哪些位置。</p>
+<p>一种实现方式是，在计算注意力时，不直接将完整的注意力矩阵 <code>A = QK^T</code> 送入Softmax，而是先对其进行“稀疏化”处理。具体来说，对于矩阵中的每一行（即每个查询token），我们不计算它与所有键token的注意力，而是只选择与它相似度最高的top-k个键token，并只在这k个token上进行Softmax归一化。其他位置的注意力权重则被强制设为零。</p>
+<p>这种方法允许每个token动态地、根据内容选择其最重要的信息来源，而不是被一个固定的、预定义的模式所限制。例如，一个代表车辆的token可能会选择关注它前方的路面token和远处的交通灯token，即使它们在序列中的位置相距很远。这使得稀疏注意力在保持高效的同时，也具备了更高的灵活性和表达能力。</p>
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>窗口大小：256-512</li>
+<li>全局token比例：&lt;1%</li>
+<li>随机块数：3-5</li>
+<li>LSH桶数：n/64</li>
+</ul>
+<h2 id="53-on-log-n">5.3 O(n log n)复杂度算法实现</h2>
+<h3 id="fast-attention-via-orthogonal-random-features">Fast Attention via Orthogonal Random Features</h3>
+<p><strong>正交随机特征</strong>：
+使用正交矩阵保证更好的近似：
+$$\Omega = \text{orth}(G) \cdot \sqrt{d}$$
+其中G为高斯随机矩阵。</p>
+<p><strong>FAVOR+算法</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">favor_plus_attention</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+    <span class="c1"># 生成正交随机特征</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="n">generate_orthogonal_features</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># 特征映射</span>
+    <span class="n">q_prime</span> <span class="o">=</span> <span class="n">feature_map</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">omega</span><span class="p">)</span>  <span class="c1"># [n, m]</span>
+    <span class="n">k_prime</span> <span class="o">=</span> <span class="n">feature_map</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">omega</span><span class="p">)</span>  <span class="c1"># [n, m]</span>
+
+    <span class="c1"># 线性注意力</span>
+    <span class="n">kv</span> <span class="o">=</span> <span class="n">k_prime</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">v</span>  <span class="c1"># [m, d]</span>
+    <span class="n">normalizer</span> <span class="o">=</span> <span class="n">k_prime</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># [1, m]</span>
+
+    <span class="n">output</span> <span class="o">=</span> <span class="n">q_prime</span> <span class="o">@</span> <span class="p">(</span><span class="n">kv</span> <span class="o">/</span> <span class="n">normalizer</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<p>复杂度：$O(nmd)$，选择$m = O(\log n)$得到$O(n \log n)$。</p>
+<h3 id="_6">分层注意力机制</h3>
+<p><strong>二叉树分解</strong>：</p>
+<div class="codehilite"><pre><span></span><code>Level 0: [1][2][3][4][5][6][7][8]  # n个叶节点
+Level 1:   [1,2] [3,4] [5,6] [7,8]  # n/2个节点
+Level 2:     [1-4]     [5-8]        # n/4个节点
+Level 3:         [1-8]               # 根节点
+</code></pre></div>
+
+<p>每层计算复杂度：$O(n \cdot d)$
+总复杂度：$O(n \log n \cdot d)$</p>
+<p><strong>实现细节</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">hierarchical_attention</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">num_levels</span><span class="p">):</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">x</span>
+
+    <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_levels</span><span class="p">):</span>
+        <span class="c1"># 当前层注意力</span>
+        <span class="n">attn</span> <span class="o">=</span> <span class="n">local_attention</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="n">level</span><span class="p">)</span>
+        <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attn</span><span class="p">)</span>
+
+        <span class="c1"># 池化到下一层</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">pool</span><span class="p">(</span><span class="n">attn</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># 上采样并组合</span>
+    <span class="n">combined</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">upsample</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="n">i</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">out</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outputs</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">combined</span>
+</code></pre></div>
+
+<h3 id="fft">FFT加速的注意力</h3>
+<p><strong>循环卷积视角</strong>：
+注意力可视为循环卷积：
+$$y_i = \sum_{j} a_{(i-j) \bmod n} \cdot v_j$$
+<strong>FFT加速</strong>：
+$$Y = \text{IFFT}(\text{FFT}(A) \odot \text{FFT}(V))$$
+复杂度：$O(n \log n \cdot d)$</p>
+<p><strong>Toeplitz矩阵近似</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">fft_attention</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># 构造Toeplitz矩阵的第一行</span>
+    <span class="n">first_row</span> <span class="o">=</span> <span class="n">compute_attention_kernel</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="c1"># FFT加速</span>
+    <span class="n">fft_kernel</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">first_row</span><span class="p">)</span>
+    <span class="n">fft_values</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># 逐点乘法</span>
+    <span class="n">fft_output</span> <span class="o">=</span> <span class="n">fft_kernel</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">fft_values</span>
+
+    <span class="c1"># 逆FFT</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">fft_output</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+    <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>随机特征数：64-256</li>
+<li>层级数：log₂(n/512)</li>
+<li>FFT块大小：2的幂次</li>
+</ul>
+<h2 id="54-onn">5.4 O(n√n)块状注意力设计</h2>
+<h3 id="_7">块分解策略</h3>
+<p><strong>基本块注意力</strong>：
+将序列分成$\sqrt{n}$个块，每块$\sqrt{n}$个元素：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">Sequence</span><span class="err">:</span><span class="w"> </span><span class="o">[</span><span class="n">Block₁</span><span class="o">][</span><span class="n">Block₂</span><span class="o">]</span><span class="p">...</span><span class="o">[</span><span class="n">Block_{√n}</span><span class="o">]</span>
+<span class="w">           </span><span class="err">↓</span><span class="w">      </span><span class="err">↓</span><span class="w">          </span><span class="err">↓</span>
+<span class="w">        </span><span class="err">√</span><span class="n">n</span><span class="w"> </span><span class="n">tokens</span><span class="w"> </span><span class="k">each</span>
+</code></pre></div>
+
+<p><strong>块内+块间注意力</strong>：
+$$\text{BlockAttn} = \text{IntraBlock} + \text{InterBlock}$$
+复杂度：</p>
+<ul>
+<li>块内：$\sqrt{n}$块×$O((\sqrt{n})^2 d) = O(n\sqrt{n}d)$</li>
+<li>块间：$O((\sqrt{n})^2 d) = O(nd)$</li>
+<li>总计：$O(n\sqrt{n}d)$</li>
+</ul>
+<h3 id="routing-transformer">Routing Transformer</h3>
+<p><strong>路由机制</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">routing_attention</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">num_clusters</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>  <span class="c1"># 聚类数</span>
+
+    <span class="c1"># K-means聚类</span>
+    <span class="n">centroids</span><span class="p">,</span> <span class="n">assignments</span> <span class="o">=</span> <span class="n">kmeans</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="c1"># 块内注意力</span>
+    <span class="n">clustered_outputs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="n">cluster_idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">assignments</span> <span class="o">==</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">cluster_x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">cluster_idx</span><span class="p">]</span>
+
+        <span class="c1"># 计算注意力</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">standard_attention</span><span class="p">(</span><span class="n">cluster_x</span><span class="p">)</span>
+        <span class="n">clustered_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">cluster_idx</span><span class="p">,</span> <span class="n">output</span><span class="p">))</span>
+
+    <span class="c1"># 重组输出</span>
+    <span class="n">final_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">clustered_outputs</span><span class="p">:</span>
+        <span class="n">final_output</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span>
+
+    <span class="k">return</span> <span class="n">final_output</span>
+</code></pre></div>
+
+<p><strong>动态路由</strong>：
+$$p_{ij} = \frac{\exp(x_i^T c_j / \tau)}{\sum_k \exp(x_i^T c_k / \tau)}$$
+token i分配到簇j的概率。</p>
+<h3 id="_8">分块矩阵乘法优化</h3>
+<p><strong>Blocked Matrix Multiplication</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">blocked_matmul</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">k2</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">assert</span> <span class="n">k</span> <span class="o">==</span> <span class="n">k2</span>
+
+    <span class="n">C</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+                <span class="c1"># 块乘法</span>
+                <span class="n">A_block</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">block_size</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span><span class="n">k</span><span class="o">+</span><span class="n">block_size</span><span class="p">]</span>
+                <span class="n">B_block</span> <span class="o">=</span> <span class="n">B</span><span class="p">[</span><span class="n">k</span><span class="p">:</span><span class="n">k</span><span class="o">+</span><span class="n">block_size</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span><span class="n">j</span><span class="o">+</span><span class="n">block_size</span><span class="p">]</span>
+                <span class="n">C</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">block_size</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span><span class="n">j</span><span class="o">+</span><span class="n">block_size</span><span class="p">]</span> <span class="o">+=</span> <span class="n">A_block</span> <span class="o">@</span> <span class="n">B_block</span>
+
+    <span class="k">return</span> <span class="n">C</span>
+</code></pre></div>
+
+<p><strong>内存访问优化</strong>：</p>
+<ul>
+<li>块大小选择：适配L2 cache</li>
+<li>数据布局：行优先vs列优先</li>
+<li>预取策略：提前加载下一块</li>
+</ul>
+<h3 id="linformer">Linformer降维</h3>
+<p><strong>低秩投影</strong>：
+$$\text{Attention}(Q,K,V) = QW_q(EK)^T(FV)$$
+其中$E, F \in \mathbb{R}^{k \times n}$，$k = O(\sqrt{n})$</p>
+<p><strong>实现</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">Linformer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="c1"># 降维</span>
+        <span class="n">k_reduced</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span> <span class="o">@</span> <span class="n">k</span>  <span class="c1"># [k, d]</span>
+        <span class="n">v_reduced</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">@</span> <span class="n">v</span>  <span class="c1"># [k, d]</span>
+
+        <span class="c1"># 标准注意力（低维）</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">q</span> <span class="o">@</span> <span class="n">k_reduced</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [n, k]</span>
+        <span class="n">attn</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">attn</span> <span class="o">@</span> <span class="n">v_reduced</span>  <span class="c1"># [n, d]</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>块大小：$\sqrt{n}$或512</li>
+<li>聚类数：$\sqrt{n}$到$n/64$</li>
+<li>投影维度：256-512</li>
+<li>Cache块：32-64KB</li>
+</ul>
+<h2 id="55">5.5 混合注意力架构</h2>
+<h3 id="_9">层级混合策略</h3>
+<p><strong>不同层使用不同注意力</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">HybridTransformer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">num_layers</span> <span class="o">//</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># 底层：局部注意力</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">LocalAttentionLayer</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">num_layers</span> <span class="o">//</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># 中层：稀疏注意力</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">SparseAttentionLayer</span><span class="p">(</span><span class="n">sparsity</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># 高层：全局注意力（降采样后）</span>
+                <span class="n">layer</span> <span class="o">=</span> <span class="n">GlobalAttentionLayer</span><span class="p">(</span><span class="n">downsample</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>动态选择</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">dynamic_attention_selection</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">1024</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">standard_attention</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">4096</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sparse_attention</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">16384</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">linear_attention</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">hierarchical_attention</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="sandwich-transformer">Sandwich Transformer</h3>
+<p><strong>三明治结构</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="o">[</span><span class="n">Local</span><span class="o">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="o">[</span><span class="n">Local</span><span class="o">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="o">[</span><span class="n">Global</span><span class="o">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="o">[</span><span class="n">Local</span><span class="o">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="o">[</span><span class="n">Local</span><span class="o">]</span>
+</code></pre></div>
+
+<p>全局层捕获长程依赖，局部层细化。</p>
+<p><strong>实现</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SandwichLayer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">is_global</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">is_global</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attn</span> <span class="o">=</span> <span class="n">GlobalAttention</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attn</span> <span class="o">=</span> <span class="n">LocalAttention</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">x</span>
+</code></pre></div>
+
+<h3 id="_10">门控混合机制</h3>
+<p><strong>门控选择</strong>：
+$$y = g \cdot y_{local} + (1-g) \cdot y_{global}$$
+其中$g = \sigma(W_g x + b_g)$</p>
+<p><strong>多头混合</strong>：
+不同head使用不同模式：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MixedMultiHeadAttention</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heads</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_heads</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">head</span> <span class="o">=</span> <span class="n">GlobalHead</span><span class="p">(</span><span class="n">d_model</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">head</span> <span class="o">=</span> <span class="n">LocalHead</span><span class="p">(</span><span class="n">d_model</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">head</span> <span class="o">=</span> <span class="n">StridedHead</span><span class="p">(</span><span class="n">d_model</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">head</span> <span class="o">=</span> <span class="n">RandomHead</span><span class="p">(</span><span class="n">d_model</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">heads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">head</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="_11">自适应计算</h3>
+<p><strong>长度感知路由</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">length_aware_attention</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">512</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">full_attention</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># 分段处理</span>
+    <span class="n">segments</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">512</span><span class="p">):</span>
+        <span class="n">segment</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">512</span><span class="p">]</span>
+
+        <span class="c1"># 段内精细注意力</span>
+        <span class="n">local_out</span> <span class="o">=</span> <span class="n">full_attention</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+
+        <span class="c1"># 段间粗糙注意力</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">512</span><span class="p">):</span><span class="n">i</span><span class="p">:</span><span class="mi">64</span><span class="p">]</span>  <span class="c1"># 下采样</span>
+            <span class="n">cross_out</span> <span class="o">=</span> <span class="n">cross_attention</span><span class="p">(</span><span class="n">segment</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+            <span class="n">local_out</span> <span class="o">=</span> <span class="n">local_out</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">cross_out</span>
+
+        <span class="n">segments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">local_out</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">segments</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>计算预算分配</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">budget_aware_attention</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">compute_budget</span><span class="p">):</span>
+    <span class="n">importance</span> <span class="o">=</span> <span class="n">estimate_importance</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># 根据重要性分配计算</span>
+    <span class="n">attention_type</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">remaining_budget</span> <span class="o">=</span> <span class="n">compute_budget</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">imp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">importance</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">imp</span> <span class="o">&gt;</span> <span class="mf">0.8</span> <span class="ow">and</span> <span class="n">remaining_budget</span> <span class="o">&gt;</span> <span class="n">FULL_COST</span><span class="p">:</span>
+            <span class="n">attention_type</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;full&#39;</span><span class="p">)</span>
+            <span class="n">remaining_budget</span> <span class="o">-=</span> <span class="n">FULL_COST</span>
+        <span class="k">elif</span> <span class="n">imp</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">remaining_budget</span> <span class="o">&gt;</span> <span class="n">SPARSE_COST</span><span class="p">:</span>
+            <span class="n">attention_type</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;sparse&#39;</span><span class="p">)</span>
+            <span class="n">remaining_budget</span> <span class="o">-=</span> <span class="n">SPARSE_COST</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">attention_type</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+            <span class="n">remaining_budget</span> <span class="o">-=</span> <span class="n">LINEAR_COST</span>
+
+    <span class="k">return</span> <span class="n">apply_mixed_attention</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">attention_type</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>全局层比例：1/4到1/3</li>
+<li>门控阈值：0.5</li>
+<li>混合head比例：2:1:1（local:strided:global）</li>
+<li>计算预算：2x-4x标准注意力</li>
+</ul>
+<h2 id="state-space-models-mamba">高级话题：State Space Models (Mamba)与自回归视频生成</h2>
+<h3 id="state-space-models">State Space Models基础</h3>
+<p><strong>连续时间状态空间</strong>：
+$$\begin{align}
+\frac{dx(t)}{dt} &amp;= Ax(t) + Bu(t) \\
+y(t) &amp;= Cx(t) + Du(t)
+\end{align}$$
+<strong>离散化（ZOH）</strong>：
+$$\begin{align}
+x_k &amp;= \bar{A}x_{k-1} + \bar{B}u_k \\
+y_k &amp;= Cx_k
+\end{align}$$
+其中$\bar{A} = e^{A\Delta}, \bar{B} = A^{-1}(e^{A\Delta} - I)B$</p>
+<h3 id="mamba">Mamba架构</h3>
+<p><strong>选择性SSM</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MambaBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">d_state</span><span class="o">=</span><span class="mi">16</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d_state</span> <span class="o">=</span> <span class="n">d_state</span>
+
+        <span class="c1"># 投影</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># SSM参数</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_state</span><span class="p">,</span> <span class="n">d_state</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># 输出投影</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># 选择性扫描</span>
+        <span class="n">z</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_proj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="c1"># SSM</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_state</span><span class="p">)</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">@</span> <span class="n">h</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">t</span><span class="p">]))</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">C</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">t</span><span class="p">])</span> <span class="o">@</span> <span class="n">h</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">*</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">t</span><span class="p">]</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">z</span><span class="p">[:,</span> <span class="n">t</span><span class="p">])</span>
+
+        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>并行扫描算法</strong>：
+利用关联性质并行化：
+$$y_i = C\left(\prod_{j=1}^i \bar{A}\right) \bar{B}u_0 + ... + C\bar{B}u_i$$</p>
+<h3 id="_12">视频生成中的应用</h3>
+<p><strong>时空SSM</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SpatioTemporalSSM</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temporal_ssm</span> <span class="o">=</span> <span class="n">MambaBlock</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spatial_ssm</span> <span class="o">=</span> <span class="n">MambaBlock</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">video_tokens</span><span class="p">):</span>
+        <span class="c1"># video_tokens: [B, T, H, W, D]</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">video_tokens</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># 时间维度SSM</span>
+        <span class="n">temporal_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_ssm</span><span class="p">(</span>
+            <span class="n">video_tokens</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="o">*</span><span class="n">H</span><span class="o">*</span><span class="n">W</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+
+        <span class="c1"># 空间维度SSM</span>
+        <span class="n">spatial_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_ssm</span><span class="p">(</span>
+            <span class="n">temporal_out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="o">*</span><span class="n">T</span><span class="p">,</span> <span class="n">H</span><span class="o">*</span><span class="n">W</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">spatial_out</span>
+</code></pre></div>
+
+<h3 id="_13">长程建模优势</h3>
+<p><strong>线性复杂度</strong>：</p>
+<ul>
+<li>Transformer: $O(n^2d)$</li>
+<li>Mamba: $O(nd^2)$</li>
+</ul>
+<p><strong>无限上下文</strong>：
+状态向量隐式编码历史信息。</p>
+<p><strong>因果性保证</strong>：
+自然满足自回归要求。</p>
+<p><strong>训练效率</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">efficient_mamba_training</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+    <span class="c1"># 并行处理多个序列</span>
+    <span class="n">states</span> <span class="o">=</span> <span class="n">initialize_states</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+
+    <span class="n">all_outputs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chunk_sequences</span><span class="p">(</span><span class="n">sequences</span><span class="p">):</span>
+        <span class="c1"># 并行扫描</span>
+        <span class="n">outputs</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">parallel_scan</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">all_outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+
+        <span class="c1"># 梯度检查点</span>
+        <span class="k">if</span> <span class="n">should_checkpoint</span><span class="p">():</span>
+            <span class="n">checkpoint</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">concat</span><span class="p">(</span><span class="n">all_outputs</span><span class="p">)</span>
+</code></pre></div>
+
+<h2 id="_14">本章小结</h2>
+<p>本章系统介绍了高效长序列注意力机制的设计与实现：</p>
+<p><strong>关键概念</strong>：</p>
+<ol>
+<li><strong>计算挑战</strong>：O(n²)复杂度、内存瓶颈、梯度问题</li>
+<li><strong>线性注意力</strong>：核技巧、随机特征、FAVOR+</li>
+<li><strong>稀疏模式</strong>：局部窗口、LSH、Longformer</li>
+<li><strong>高效算法</strong>：O(n log n)层级、O(n√n)块状</li>
+<li><strong>混合架构</strong>：Sandwich、门控、自适应</li>
+</ol>
+<p><strong>核心公式</strong>：</p>
+<ul>
+<li>线性注意力：$\text{Attn} = \phi(Q)(\phi(K)^TV)$</li>
+<li>块复杂度：$O(n\sqrt{n}d)$</li>
+<li>SSM递归：$x_k = \bar{A}x_{k-1} + \bar{B}u_k$</li>
+<li>FFT加速：$Y = \text{IFFT}(\text{FFT}(A) \odot \text{FFT}(V))$</li>
+</ul>
+<p><strong>核心论文</strong>：</p>
+<ol>
+<li>[Performer] <strong>Rethinking Attention with Performers</strong>, ICLR 2021</li>
+<li>[Linformer] <strong>Linformer: Self-Attention with Linear Complexity</strong>, 2020</li>
+<li>[Reformer] <strong>Reformer: The Efficient Transformer</strong>, ICLR 2020</li>
+<li>[Mamba] <strong>Mamba: Linear-Time Sequence Modeling with Selective State Spaces</strong>, 2023</li>
+<li>[Flash Attention] <strong>FlashAttention-2: Faster Attention with Better Parallelism</strong>, 2023</li>
+</ol>
+<h2 id="gotchas">常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1">1. 近似误差累积</h3>
+<p><strong>问题</strong>：线性注意力近似误差随序列增长
+<strong>症状</strong>：长序列性能退化
+<strong>解决</strong>：</p>
+<ul>
+<li>增加随机特征数</li>
+<li>使用正交特征</li>
+<li>定期重新校准</li>
+</ul>
+<h3 id="2">2. 稀疏模式选择不当</h3>
+<p><strong>问题</strong>：固定模式不适合所有数据
+<strong>症状</strong>：关键信息丢失
+<strong>解决</strong>：</p>
+<ul>
+<li>学习稀疏模式</li>
+<li>动态调整稀疏度</li>
+<li>保留全局token</li>
+</ul>
+<h3 id="3">3. 块大小与硬件不匹配</h3>
+<p><strong>问题</strong>：块大小不适配cache
+<strong>症状</strong>：性能远低于理论值
+<strong>解决</strong>：</p>
+<ul>
+<li>Profile确定最优块大小</li>
+<li>考虑GPU warp大小</li>
+<li>内存对齐</li>
+</ul>
+<h3 id="4">4. 梯度流断裂</h3>
+<p><strong>问题</strong>：稀疏连接导致梯度消失
+<strong>症状</strong>：深层不更新
+<strong>解决</strong>：</p>
+<ul>
+<li>残差连接</li>
+<li>梯度重路由</li>
+<li>混合密集层</li>
+</ul>
+<h3 id="5_1">5. 位置信息丢失</h3>
+<p><strong>问题</strong>：高效注意力破坏位置编码
+<strong>症状</strong>：顺序敏感任务性能差
+<strong>解决</strong>：</p>
+<ul>
+<li>显式位置编码</li>
+<li>相对位置偏置</li>
+<li>因果mask保持</li>
+</ul>
+<h3 id="6">6. 训推不一致</h3>
+<p><strong>问题</strong>：训练用全注意力，推理用稀疏
+<strong>症状</strong>：推理性能下降
+<strong>解决</strong>：</p>
+<ul>
+<li>训练时模拟稀疏</li>
+<li>渐进式稀疏化</li>
+<li>知识蒸馏</li>
+</ul>
+<h3 id="7">7. 数值稳定性</h3>
+<p><strong>问题</strong>：长序列数值溢出
+<strong>症状</strong>：NaN或Inf
+<strong>解决</strong>：</p>
+<ul>
+<li>Log-space计算</li>
+<li>定期归一化</li>
+<li>混合精度训练</li>
+</ul>
+<h3 id="8">8. 内存碎片</h3>
+<p><strong>问题</strong>：动态稀疏导致碎片
+<strong>症状</strong>：OOM despite有剩余内存
+<strong>解决</strong>：</p>
+<ul>
+<li>预分配缓冲区</li>
+<li>内存池管理</li>
+<li>定期整理</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter4.html" class="nav-link prev">← 第4章：视觉编码器与Tokenization</a><a href="chapter6.html" class="nav-link next">第6章：MoE架构与规模化 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>
