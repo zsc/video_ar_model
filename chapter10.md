@@ -39,31 +39,12 @@ P(x) = α·P_uncertainty(x) + β·P_diversity(x) + γ·P_difficulty(x)
 利用教师模型生成高质量伪标签可以大幅降低标注成本：
 
 **教师模型集成**：
-```python
-class TeacherEnsemble:
-    def __init__(self, teachers):
-        self.teachers = teachers
-        self.confidence_threshold = 0.9
+为了提升伪标签的质量和可靠性，可以采用多个“教师模型”进行集成。该方法汇集了多个独立训练或不同架构的模型的预测结果，以生成一个更鲁棒的共识标签。
 
-    def generate_pseudo_labels(self, x):
-        predictions = []
-        confidences = []
-
-        for teacher in self.teachers:
-            pred, conf = teacher.predict_with_confidence(x)
-            predictions.append(pred)
-            confidences.append(conf)
-
-        # 加权投票
-        weights = softmax(confidences / temperature)
-        consensus = weighted_vote(predictions, weights)
-
-        # 置信度过滤
-        final_confidence = compute_agreement_score(predictions)
-        if final_confidence > self.confidence_threshold:
-            return consensus, final_confidence
-        return None, 0
-```
+其工作流程如下：
+1.  **独立预测**：对于一个未标注的样本，每个教师模型都独立地进行预测，并输出预测结果及其置信度分数。
+2.  **加权投票**：将所有教师模型的预测结果进行汇总。一种有效的方式是根据每个模型的置信度进行加权投票，置信度越高的模型在最终决策中的话语权越大。可以使用温度系数（temperature）来调整置信度分布的平滑度。
+3.  **共识与过滤**：计算所有教师模型预测结果之间的一致性（例如，投票的熵或预测的方差）作为最终的共识置信度。只有当这个共识置信度超过一个预设的阈值（如0.9）时，才接受这个伪标签，否则将其丢弃。这种严格的过滤机制确保了只有高质量、高确定性的伪标签被用于学生模型的训练。
 
 **时序一致性约束**：
 ```
