@@ -241,14 +241,8 @@ $$P_{false_positive} = (1 - e^{-kn/m})^k$$
 <li>Bloom Filter：10倍预期容量，k=7</li>
 </ul>
 <h3 id="_4">时序一致性去重</h3>
-<p><strong>滑动窗口去重</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="n">Window</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="n">W</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span> <span class="err">──</span><span class="o">&gt;</span> <span class="n">Check</span> <span class="n">similarity</span> <span class="k">with</span> <span class="n">t</span><span class="o">+</span><span class="mi">1</span>
-         <span class="err">│</span>                    <span class="err">│</span>
-         <span class="err">↓</span>                    <span class="err">↓</span>
-    <span class="n">Historical</span>            <span class="n">New</span> <span class="n">frame</span>
-      <span class="n">buffer</span>              <span class="n">candidate</span>
-</code></pre></div>
-
+<p><strong>滑动窗口去重</strong>：
+滑动窗口去重维护一个时间窗口[t-W, t]的历史缓冲区，对每个新帧t+1进行相似性检查。算法将窗口内的历史帧作为参考集，新帧作为候选项进行比对。如果新帧与窗口内任何帧的相似度超过阈值，则认为是重复帧并丢弃。窗口随时间滑动前进，既保证了时序局部性，又限制了比对的计算量。这种方法特别适合处理视频流中的静止场景和慢速运动导致的帧间冗余。</p>
 <p><strong>关键帧提取</strong>：
 基于信息增益选择关键帧：
 $$I(f_t) = H(f_t|f_{<t}) = -\sum\_i p\_i \log p\_i$$
@@ -485,16 +479,8 @@ $$\text{Trigger}_{novel} = \mathbb{1}[d(x, \mathcal{D}_{train}) &gt; \tau_{dist}
                           特征对齐              50% accuracy
 </code></pre></div>
 
-<p><strong>多级决策树</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">safety_critical</span><span class="p">():</span>
-    <span class="n">trigger_immediately</span><span class="p">()</span>
-<span class="k">elif</span> <span class="n">uncertainty</span> <span class="o">&gt;</span> <span class="mf">0.8</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">compute_budget_available</span><span class="p">():</span>
-        <span class="n">run_detailed_check</span><span class="p">()</span>
-<span class="k">elif</span> <span class="n">novelty_score</span> <span class="o">&gt;</span> <span class="mf">0.9</span><span class="p">:</span>
-    <span class="n">sample_with_probability</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
-</code></pre></div>
-
+<p><strong>多级决策树</strong>：
+触发策略采用分级决策树：首先检查是否为安全关键场景（如紧急制动、避障），若是则立即触发采集。其次评估模型不确定性，当超过0.8阈值时，如果计算预算允许则运行详细检查。最后对于新颖度分数超过0.9的样本，以0.5的概率进行采样。这种级联决策确保了安全优先、资源高效、兼顾探索的数据采集策略。</p>
 <p><strong>资源约束优化</strong>：
 带宽限制下的优先级队列：
 $$\text{Priority}(x) = w_1 \cdot \text{Safety} + w_2 \cdot \text{Learning} + w_3 \cdot \text{Novelty}$$
@@ -612,13 +598,8 @@ $$\mathcal{L}_{distill} = \text{KL}(p_{student} || p_{teacher})$$</p>
 <li>Merkle tree：快速验证数据完整性</li>
 <li>Git-like branching：支持实验分支</li>
 </ul>
-<p><strong>回滚机制</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">performance_degradation_detected</span><span class="p">():</span>
-    <span class="n">rollback_to_previous_version</span><span class="p">()</span>
-    <span class="n">analyze_root_cause</span><span class="p">()</span>
-    <span class="n">fix_and_retrain</span><span class="p">()</span>
-</code></pre></div>
-
+<p><strong>回滚机制</strong>：
+自动回滚系统持续监控模型性能指标，当检测到性能退化时立即触发回滚流程。系统首先恢复到上一个稳定版本，确保服务不中断。然后启动根因分析，检查是数据分布偏移、标注错误还是训练问题。最后修复问题并重新训练，只有在新版本通过全面验证后才会再次部署。这种机制确保了系统的稳定性和可靠性。</p>
 <h3 id="_22">质量度量体系</h3>
 <p><strong>多层次评估</strong>：</p>
 <div class="codehilite"><pre><span></span><code><span class="nv">Level</span><span class="w">           </span><span class="nv">Metrics</span><span class="w">                  </span><span class="nv">Frequency</span>
@@ -633,13 +614,8 @@ $$\mathcal{L}_{distill} = \text{KL}(p_{student} || p_{teacher})$$</p>
 使用MMD（Maximum Mean Discrepancy）：
 $$\text{MMD}^2 = |\mu_P - \mu_Q|_{\mathcal{H}}^2$$
 当MMD超过阈值时触发重训练。</p>
-<p><strong>长期趋势分析</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 指数平滑预测</span>
-<span class="n">trend</span> <span class="o">=</span> <span class="n">exponential_smoothing</span><span class="p">(</span><span class="n">historical_metrics</span><span class="p">)</span>
-<span class="k">if</span> <span class="n">trend</span><span class="o">.</span><span class="n">slope</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-    <span class="n">investigate_degradation_cause</span><span class="p">()</span>
-</code></pre></div>
-
+<p><strong>长期趋势分析</strong>：
+系统使用指数平滑算法对历史性能指标进行趋势预测，赋予近期数据更高权重。当检测到趋势斜率为负（性能下降）时，自动触发退化原因调查。调查包括分析数据分布变化、检查模型各层激活分布、对比不同时期的错误模式等。这种前瞻性监控能够在问题严重化之前及早发现和干预。</p>
 <h3 id="_23">成本优化策略</h3>
 <p><strong>标注成本模型</strong>：
 $$C_{total} = C_{human} \cdot N_{human} + C_{compute} \cdot N_{auto} + C_{verify} \cdot N_{verify}$$
@@ -708,26 +684,13 @@ $$\epsilon_\theta(\mathbf{x}_t, t, c) = \epsilon_\theta(\mathbf{x}_t, t) + s \cd
 $$\phi ::= \text{Always}(\text{distance} &gt; d_{min}) \land \text{Eventually}(\text{reach_goal})$$
 反例生成：
 $$\mathbf{x}_{counter} = \arg\min_\mathbf{x} d(\mathbf{x}, \mathcal{D}_{real}) \text{ s.t. } \neg\phi(\mathbf{x})$$
-<strong>蒙特卡洛树搜索（MCTS）</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">State</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Action</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="k">Next</span><span class="w"> </span><span class="nv">State</span><span class="w"> </span>──<span class="o">&gt;</span><span class="w"> </span><span class="nv">Reward</span>
-<span class="w">  </span>│<span class="w">          </span>│<span class="w">            </span>│<span class="w">            </span>│
-<span class="w">  </span>↓<span class="w">          </span>↓<span class="w">            </span>↓<span class="w">            </span>↓
-场景配置<span class="w">   </span>参数调整<span class="w">    </span>新场景<span class="w">    </span>碰撞<span class="o">=-</span><span class="mi">1000</span>
-</code></pre></div>
-
+<strong>蒙特卡洛树搜索（MCTS）</strong>：
+MCTS系统地探索场景空间寻找危险案例。从当前场景配置（状态）出发，通过参数调整（动作）生成新场景（下一状态），并评估奖励（如碰撞给予-1000负奖励）。搜索过程迭代执行选择、扩展、模拟和回传四个步骤，逐步构建场景树，识别导致失败的关键场景配置。这种方法能够高效地发现稀有但关键的边界案例。</p>
 <p>通过MCTS搜索危险场景：
 $$UCB = \frac{Q(s,a)}{N(s,a)} + c\sqrt{\frac{\ln N(s)}{N(s,a)}}$$</p>
 <h3 id="_26">域随机化与泛化</h3>
-<p><strong>系统性域随机化</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="n">domains</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;texture&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">),</span>      <span class="c1"># 纹理强度</span>
-    <span class="s1">&#39;color&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>         <span class="c1"># 色调偏移</span>
-    <span class="s1">&#39;noise&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span>          <span class="c1"># 噪声水平</span>
-    <span class="s1">&#39;blur&#39;</span><span class="p">:</span> <span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>             <span class="c1"># 运动模糊</span>
-    <span class="s1">&#39;weather&#39;</span><span class="p">:</span> <span class="n">categorical</span><span class="p">([</span><span class="o">...</span><span class="p">])</span>       <span class="c1"># 天气类型</span>
-<span class="p">}</span>
-</code></pre></div>
-
+<p><strong>系统性域随机化</strong>：
+域随机化通过系统地变化环境参数来提升模型泛化能力。纹理强度在0.5到2.0倍之间均匀采样，模拟不同材质表面；色调偏移在-30到30度范围内调整，覆盖各种光照条件；噪声水平从0到0.1添加，模拟传感器噪声；运动模糊核大小在0到3像素变化，模拟不同速度下的成像；天气类型从预定义类别中随机选择，包括晴天、雨天、雾天等。这种多维度随机化策略确保模型在多样化条件下的鲁棒性。</p>
 <p><strong>域插值与外推</strong>：
 $$\mathcal{D}_{new} = (1-\alpha) \cdot \mathcal{D}_{source} + \alpha \cdot \mathcal{D}_{target}, \alpha \in [-0.2, 1.2]$$
 允许外推生成更极端场景。</p>

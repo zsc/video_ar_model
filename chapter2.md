@@ -104,13 +104,7 @@ $$h(\mathbf{v}) = \text{sign}(\mathbf{r}^T \mathbf{v})$$
 ### 时序一致性去重
 
 **滑动窗口去重**：
-```python
-Window: [t-W, t] ──> Check similarity with t+1
-         │                    │
-         ↓                    ↓
-    Historical            New frame
-      buffer              candidate
-```
+滑动窗口去重维护一个时间窗口[t-W, t]的历史缓冲区，对每个新帧t+1进行相似性检查。算法将窗口内的历史帧作为参考集，新帧作为候选项进行比对。如果新帧与窗口内任何帧的相似度超过阈值，则认为是重复帧并丢弃。窗口随时间滑动前进，既保证了时序局部性，又限制了比对的计算量。这种方法特别适合处理视频流中的静止场景和慢速运动导致的帧间冗余。
 
 **关键帧提取**：
 基于信息增益选择关键帧：
@@ -398,15 +392,7 @@ Full Model (20B params) ──> Distillation ──> Edge Model (100M params)
 ```
 
 **多级决策树**：
-```python
-if safety_critical():
-    trigger_immediately()
-elif uncertainty > 0.8:
-    if compute_budget_available():
-        run_detailed_check()
-elif novelty_score > 0.9:
-    sample_with_probability(0.5)
-```
+触发策略采用分级决策树：首先检查是否为安全关键场景（如紧急制动、避障），若是则立即触发采集。其次评估模型不确定性，当超过0.8阈值时，如果计算预算允许则运行详细检查。最后对于新颖度分数超过0.9的样本，以0.5的概率进行采样。这种级联决策确保了安全优先、资源高效、兼顾探索的数据采集策略。
 
 **资源约束优化**：
 带宽限制下的优先级队列：
@@ -541,12 +527,7 @@ Dataset_v1.0 ──> Dataset_v1.1 ──> Dataset_v2.0
 - Git-like branching：支持实验分支
 
 **回滚机制**：
-```python
-if performance_degradation_detected():
-    rollback_to_previous_version()
-    analyze_root_cause()
-    fix_and_retrain()
-```
+自动回滚系统持续监控模型性能指标，当检测到性能退化时立即触发回滚流程。系统首先恢复到上一个稳定版本，确保服务不中断。然后启动根因分析，检查是数据分布偏移、标注错误还是训练问题。最后修复问题并重新训练，只有在新版本通过全面验证后才会再次部署。这种机制确保了系统的稳定性和可靠性。
 
 ### 质量度量体系
 
@@ -567,12 +548,7 @@ $$\text{MMD}^2 = \|\mu_P - \mu_Q\|_{\mathcal{H}}^2$$
 当MMD超过阈值时触发重训练。
 
 **长期趋势分析**：
-```python
-# 指数平滑预测
-trend = exponential_smoothing(historical_metrics)
-if trend.slope < 0:
-    investigate_degradation_cause()
-```
+系统使用指数平滑算法对历史性能指标进行趋势预测，赋予近期数据更高权重。当检测到趋势斜率为负（性能下降）时，自动触发退化原因调查。调查包括分析数据分布变化、检查模型各层激活分布、对比不同时期的错误模式等。这种前瞻性监控能够在问题严重化之前及早发现和干预。
 
 ### 成本优化策略
 
@@ -660,12 +636,7 @@ $$\phi ::= \text{Always}(\text{distance} > d_{min}) \land \text{Eventually}(\tex
 $$\mathbf{x}_{counter} = \arg\min_\mathbf{x} d(\mathbf{x}, \mathcal{D}_{real}) \text{ s.t. } \neg\phi(\mathbf{x})$$
 
 **蒙特卡洛树搜索（MCTS）**：
-```
-State ──> Action ──> Next State ──> Reward
-  │          │            │            │
-  ↓          ↓            ↓            ↓
-场景配置   参数调整    新场景    碰撞=-1000
-```
+MCTS系统地探索场景空间寻找危险案例。从当前场景配置（状态）出发，通过参数调整（动作）生成新场景（下一状态），并评估奖励（如碰撞给予-1000负奖励）。搜索过程迭代执行选择、扩展、模拟和回传四个步骤，逐步构建场景树，识别导致失败的关键场景配置。这种方法能够高效地发现稀有但关键的边界案例。
 
 通过MCTS搜索危险场景：
 $$UCB = \frac{Q(s,a)}{N(s,a)} + c\sqrt{\frac{\ln N(s)}{N(s,a)}}$$
@@ -673,15 +644,7 @@ $$UCB = \frac{Q(s,a)}{N(s,a)} + c\sqrt{\frac{\ln N(s)}{N(s,a)}}$$
 ### 域随机化与泛化
 
 **系统性域随机化**：
-```python
-domains = {
-    'texture': uniform(0.5, 2.0),      # 纹理强度
-    'color': uniform(-30, 30),         # 色调偏移
-    'noise': uniform(0, 0.1),          # 噪声水平
-    'blur': uniform(0, 3),             # 运动模糊
-    'weather': categorical([...])       # 天气类型
-}
-```
+域随机化通过系统地变化环境参数来提升模型泛化能力。纹理强度在0.5到2.0倍之间均匀采样，模拟不同材质表面；色调偏移在-30到30度范围内调整，覆盖各种光照条件；噪声水平从0到0.1添加，模拟传感器噪声；运动模糊核大小在0到3像素变化，模拟不同速度下的成像；天气类型从预定义类别中随机选择，包括晴天、雨天、雾天等。这种多维度随机化策略确保模型在多样化条件下的鲁棒性。
 
 **域插值与外推**：
 $$\mathcal{D}_{new} = (1-\alpha) \cdot \mathcal{D}_{source} + \alpha \cdot \mathcal{D}_{target}, \alpha \in [-0.2, 1.2]$$

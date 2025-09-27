@@ -153,22 +153,9 @@ $$\Omega = \text{orth}(G) \cdot \sqrt{d}$$
 其中G为高斯随机矩阵。
 
 **FAVOR+算法**：
-```python
-def favor_plus_attention(q, k, v, m):
-    # 生成正交随机特征
-    omega = generate_orthogonal_features(d, m)
+FAVOR+算法通过正交随机特征来近似标准注意力机制。首先生成维度为d×m的正交随机特征矩阵omega，其中m是随机特征的数量。然后将查询向量q和键向量k通过特征映射函数投影到m维空间，得到q_prime和k_prime（维度均为[n, m]）。
 
-    # 特征映射
-    q_prime = feature_map(q, omega)  # [n, m]
-    k_prime = feature_map(k, omega)  # [n, m]
-
-    # 线性注意力
-    kv = k_prime.T @ v  # [m, d]
-    normalizer = k_prime.sum(0, keepdim=True)  # [1, m]
-
-    output = q_prime @ (kv / normalizer)
-    return output
-```
+算法的核心在于改变计算顺序：不直接计算n×n的注意力矩阵，而是先计算k_prime的转置与值向量v的乘积，得到m×d的中间矩阵kv。同时计算归一化因子normalizer，即k_prime在第0维的求和。最后将q_prime与归一化后的kv相乘得到输出。这种计算顺序将复杂度从O(n²d)降低到O(nmd)。
 
 复杂度：$O(nmd)$，选择$m = O(\log n)$得到$O(n \log n)$。
 
@@ -186,24 +173,9 @@ Level 3:         [1-8]               # 根节点
 总复杂度：$O(n \log n \cdot d)$
 
 **实现细节**：
-```python
-def hierarchical_attention(x, num_levels):
-    outputs = []
-    current = x
+分层注意力的实现基于多层级处理策略。算法从输入序列x开始，进行num_levels层的处理。在每一层中，首先对当前层的数据应用局部注意力，窗口大小随层级指数增长（2^level），这使得高层能够捕获更大范围的依赖关系。计算完注意力后，将结果保存并通过因子为2的池化操作降采样到下一层。
 
-    for level in range(num_levels):
-        # 当前层注意力
-        attn = local_attention(current, window_size=2**level)
-        outputs.append(attn)
-
-        # 池化到下一层
-        current = pool(attn, factor=2)
-
-    # 上采样并组合
-    combined = sum(upsample(out, factor=2**i)
-                   for i, out in enumerate(outputs))
-    return combined
-```
+所有层的输出都被收集起来，然后通过上采样操作恢复到原始分辨率。具体来说，第i层的输出需要上采样2^i倍。最后将所有上采样后的输出相加，形成最终的组合表示。这种多尺度融合策略能够同时保留局部细节和全局结构信息。
 
 ### FFT加速的注意力
 
@@ -217,24 +189,9 @@ $$Y = \text{IFFT}(\text{FFT}(A) \odot \text{FFT}(V))$$
 复杂度：$O(n \log n \cdot d)$
 
 **Toeplitz矩阵近似**：
-```python
-def fft_attention(q, k, v):
-    n = q.shape[0]
+FFT注意力通过将注意力矩阵近似为Toeplitz矩阵来实现加速。算法首先使用第一个查询向量q[0]与所有键向量k计算注意力核，构造Toeplitz矩阵的第一行。这个假设认为注意力模式具有平移不变性。
 
-    # 构造Toeplitz矩阵的第一行
-    first_row = compute_attention_kernel(q[0], k)
-
-    # FFT加速
-    fft_kernel = fft(first_row)
-    fft_values = fft(v, axis=0)
-
-    # 逐点乘法
-    fft_output = fft_kernel[:, None] * fft_values
-
-    # 逆FFT
-    output = ifft(fft_output, axis=0).real
-    return output
-```
+接下来对注意力核和值矩阵v分别进行快速傅里叶变换（FFT）。在频域中，卷积操作转换为简单的逐点乘法运算，将fft_kernel扩展到正确维度后与fft_values相乘。最后通过逆FFT将结果转换回时域，并取实部作为最终输出。整个过程利用FFT的O(n log n)复杂度特性，显著加速了注意力计算。
 
 **Rule of Thumb**：
 - 随机特征数：64-256
@@ -264,31 +221,11 @@ $$\text{BlockAttn} = \text{IntraBlock} + \text{InterBlock}$$
 ### Routing Transformer
 
 **路由机制**：
-```python
-def routing_attention(x, num_clusters):
-    n, d = x.shape
-    k = int(np.sqrt(n))  # 聚类数
+路由注意力机制通过动态聚类来降低计算复杂度。算法首先根据输入序列长度n确定聚类数k（通常取sqrt(n)），然后使用K-means算法将输入向量x聚类到k个簇中，得到聚类中心centroids和每个token的簇分配assignments。
 
-    # K-means聚类
-    centroids, assignments = kmeans(x, k)
+接下来对每个簇独立计算注意力。对于第i个簇，算法提取属于该簇的所有token（通过assignments == i筛选），在这个子集上计算标准注意力。由于每个簇的大小约为n/k，这大大减少了计算量。所有簇的输出及其对应的索引被收集起来。
 
-    # 块内注意力
-    clustered_outputs = []
-    for i in range(k):
-        cluster_idx = (assignments == i)
-        cluster_x = x[cluster_idx]
-
-        # 计算注意力
-        output = standard_attention(cluster_x)
-        clustered_outputs.append((cluster_idx, output))
-
-    # 重组输出
-    final_output = torch.zeros_like(x)
-    for idx, output in clustered_outputs:
-        final_output[idx] = output
-
-    return final_output
-```
+最后进行输出重组：创建一个与输入同形状的零张量，然后根据保存的索引将每个簇的计算结果放回对应位置。这种方法通过将相似的token分组处理，实现了O(n√n)的计算复杂度。
 
 **动态路由**：
 $$p_{ij} = \frac{\exp(x_i^T c_j / \tau)}{\sum_k \exp(x_i^T c_k / \tau)}$$
@@ -298,24 +235,11 @@ token i分配到簇j的概率。
 ### 分块矩阵乘法优化
 
 **Blocked Matrix Multiplication**：
-```python
-def blocked_matmul(A, B, block_size):
-    m, k = A.shape
-    k2, n = B.shape
-    assert k == k2
+分块矩阵乘法通过将大矩阵分解为小块来优化内存访问模式。算法将输入矩阵A（m×k）和B（k×n）划分为block_size大小的块，并初始化结果矩阵C为零矩阵。
 
-    C = torch.zeros(m, n)
+计算过程使用三重循环遍历所有块：外层两个循环分别遍历结果矩阵C的行块和列块，内层循环遍历共同维度k。对于每个(i,j)位置的结果块，算法累加所有相关的A块与B块的乘积。具体来说，提取A[i:i+block_size, k:k+block_size]和B[k:k+block_size, j:j+block_size]进行矩阵乘法，将结果累加到C的对应位置。
 
-    for i in range(0, m, block_size):
-        for j in range(0, n, block_size):
-            for k in range(0, k, block_size):
-                # 块乘法
-                A_block = A[i:i+block_size, k:k+block_size]
-                B_block = B[k:k+block_size, j:j+block_size]
-                C[i:i+block_size, j:j+block_size] += A_block @ B_block
-
-    return C
-```
+这种分块策略的优势在于每个小块可以完全加载到CPU缓存中，减少了主内存访问次数，显著提升了缓存命中率。块大小的选择需要匹配硬件的L2或L3缓存大小以获得最佳性能。
 
 **内存访问优化**：
 - 块大小选择：适配L2 cache
@@ -330,25 +254,11 @@ $$\text{Attention}(Q,K,V) = QW_q(EK)^T(FV)$$
 其中$E, F \in \mathbb{R}^{k \times n}$，$k = O(\sqrt{n})$
 
 **实现**：
-```python
-class Linformer(nn.Module):
-    def __init__(self, n, d, k):
-        super().__init__()
-        self.E = nn.Parameter(torch.randn(k, n))
-        self.F = nn.Parameter(torch.randn(k, n))
+Linformer通过学习低秩投影矩阵来降低注意力计算的复杂度。模型初始化两个可学习的投影矩阵E和F，维度均为k×n，其中k远小于n（通常k=O(√n)）。这些矩阵通过随机初始化并在训练过程中优化。
 
-    def forward(self, q, k, v):
-        # 降维
-        k_reduced = self.E @ k  # [k, d]
-        v_reduced = self.F @ v  # [k, d]
+前向传播时，首先使用投影矩阵E和F分别对键矩阵k和值矩阵v进行降维投影。具体来说，k_reduced = E @ k将键从n×d降到k×d维度，v_reduced = F @ v对值进行同样的降维。
 
-        # 标准注意力（低维）
-        scores = q @ k_reduced.T  # [n, k]
-        attn = softmax(scores)
-        output = attn @ v_reduced  # [n, d]
-
-        return output
-```
+接下来在降维空间中计算注意力：查询q与降维后的键k_reduced计算注意力分数，得到n×k的分数矩阵。应用softmax归一化后，与降维的值v_reduced相乘得到最终输出。由于k << n，整体复杂度从O(n²d)降低到O(nkd)。
 
 **Rule of Thumb**：
 - 块大小：$\sqrt{n}$或512
@@ -361,38 +271,12 @@ class Linformer(nn.Module):
 ### 层级混合策略
 
 **不同层使用不同注意力**：
-```python
-class HybridTransformer(nn.Module):
-    def __init__(self, num_layers):
-        super().__init__()
-        self.layers = nn.ModuleList()
+混合Transformer架构根据网络深度使用不同的注意力机制。架构设计基于这样的观察：底层需要捕获局部特征，中层需要建立中等范围的依赖，而高层需要全局理解。
 
-        for i in range(num_layers):
-            if i < num_layers // 3:
-                # 底层：局部注意力
-                layer = LocalAttentionLayer(window_size=256)
-            elif i < 2 * num_layers // 3:
-                # 中层：稀疏注意力
-                layer = SparseAttentionLayer(sparsity=0.1)
-            else:
-                # 高层：全局注意力（降采样后）
-                layer = GlobalAttentionLayer(downsample=4)
-
-            self.layers.append(layer)
-```
+具体分配策略是：前1/3的层使用局部注意力（窗口大小256），专注于捕获局部模式和细节特征；中间1/3的层使用稀疏注意力（稀疏度0.1），在保持效率的同时扩展感受野；最后1/3的层使用全局注意力，但通过4倍降采样来控制计算量，负责整合全局信息。这种渐进式的注意力范围扩展既保证了模型的表达能力，又维持了计算效率。
 
 **动态选择**：
-```python
-def dynamic_attention_selection(x, length):
-    if length < 1024:
-        return standard_attention(x)
-    elif length < 4096:
-        return sparse_attention(x)
-    elif length < 16384:
-        return linear_attention(x)
-    else:
-        return hierarchical_attention(x)
-```
+动态注意力选择机制根据序列长度自适应地选择最合适的注意力类型。当序列长度小于1024时，使用标准注意力因为计算量仍然可控；长度在1024到4096之间时，切换到稀疏注意力以平衡性能和效率；长度在4096到16384之间时，使用线性注意力进一步降低复杂度；超过16384时，采用分层注意力处理超长序列。这种策略确保在不同规模下都能获得最佳的计算效率。
 
 ### Sandwich Transformer
 
@@ -404,18 +288,7 @@ def dynamic_attention_selection(x, length):
 全局层捕获长程依赖，局部层细化。
 
 **实现**：
-```python
-class SandwichLayer(nn.Module):
-    def __init__(self, d_model, is_global=False):
-        super().__init__()
-        if is_global:
-            self.attn = GlobalAttention(d_model)
-        else:
-            self.attn = LocalAttention(d_model, window_size=256)
-
-    def forward(self, x):
-        return self.attn(x) + x
-```
+Sandwich层的实现采用条件初始化策略。根据is_global标志，层可以配置为全局注意力或局部注意力。全局注意力层负责捕获长程依赖，而局部注意力层（窗口大小256）专注于细化局部特征。前向传播时，注意力输出与输入通过残差连接相加，这种设计确保梯度流动的稳定性，同时允许模型选择性地增强或保持输入特征。
 
 ### 门控混合机制
 
@@ -426,76 +299,21 @@ $$y = g \cdot y_{local} + (1-g) \cdot y_{global}$$
 
 **多头混合**：
 不同head使用不同模式：
-```python
-class MixedMultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads):
-        super().__init__()
-        self.heads = nn.ModuleList()
-
-        for i in range(num_heads):
-            if i % 4 == 0:
-                head = GlobalHead(d_model // num_heads)
-            elif i % 4 == 1:
-                head = LocalHead(d_model // num_heads)
-            elif i % 4 == 2:
-                head = StridedHead(d_model // num_heads)
-            else:
-                head = RandomHead(d_model // num_heads)
-
-            self.heads.append(head)
-```
+混合多头注意力通过为不同的注意力头分配不同的注意力模式来增强模型的表达能力。实现时，根据头的索引循环分配四种不同的注意力类型：每4个头中，第1个使用全局注意力捕获长程依赖，第2个使用局部注意力关注细节，第3个使用跨步注意力采样稀疏信息，第4个使用随机注意力保持全局连通性。每个头处理d_model/num_heads维度的特征。这种异构设计让模型能够同时从多个尺度和模式中提取信息，提高了模型的鲁棒性和泛化能力。
 
 ### 自适应计算
 
 **长度感知路由**：
-```python
-def length_aware_attention(x):
-    n = x.shape[0]
+长度感知注意力根据序列长度动态调整处理策略。对于短序列（长度<512），直接使用完整注意力。对于长序列，采用分段处理策略：将序列切分为512长度的段，每段内部使用精细的完整注意力计算。
 
-    if n < 512:
-        return full_attention(x)
-
-    # 分段处理
-    segments = []
-    for i in range(0, n, 512):
-        segment = x[i:i+512]
-
-        # 段内精细注意力
-        local_out = full_attention(segment)
-
-        # 段间粗糙注意力
-        if i > 0:
-            context = x[max(0, i-512):i:64]  # 下采样
-            cross_out = cross_attention(segment, context)
-            local_out = local_out + 0.1 * cross_out
-
-        segments.append(local_out)
-
-    return torch.cat(segments)
-```
+为了保持段间的信息流动，算法引入了段间交叉注意力机制。对于非首段，从前一段中每64个token采样一个作为上下文，计算当前段与这些上下文token的交叉注意力。交叉注意力结果以0.1的权重加到局部注意力输出上，既保持了段间连接又避免了过度依赖。最终将所有段的输出拼接起来形成完整结果。这种方法在保持高质量局部建模的同时，通过轻量级的段间连接维持了全局一致性。
 
 **计算预算分配**：
-```python
-def budget_aware_attention(x, compute_budget):
-    importance = estimate_importance(x)
+预算感知注意力机制根据计算资源约束和token重要性动态分配注意力类型。算法首先评估每个token或段的重要性得分，然后在给定的计算预算内进行资源分配。
 
-    # 根据重要性分配计算
-    attention_type = []
-    remaining_budget = compute_budget
+分配策略遵循优先级原则：对于重要性大于0.8的关键token，如果预算允许则分配完整注意力；重要性在0.5-0.8之间的token获得稀疏注意力；其余token使用计算成本最低的线性注意力。每分配一种注意力类型，就从剩余预算中扣除相应的计算成本（FULL_COST > SPARSE_COST > LINEAR_COST）。
 
-    for i, imp in enumerate(importance):
-        if imp > 0.8 and remaining_budget > FULL_COST:
-            attention_type.append('full')
-            remaining_budget -= FULL_COST
-        elif imp > 0.5 and remaining_budget > SPARSE_COST:
-            attention_type.append('sparse')
-            remaining_budget -= SPARSE_COST
-        else:
-            attention_type.append('linear')
-            remaining_budget -= LINEAR_COST
-
-    return apply_mixed_attention(x, attention_type)
-```
+这种机制确保在有限的计算资源下，关键信息得到充分处理，而次要信息仍能保持基本的连接性。最终根据分配结果，对不同位置应用相应的注意力类型，实现计算效率和模型性能的最优平衡。
 
 **Rule of Thumb**：
 - 全局层比例：1/4到1/3
@@ -524,41 +342,11 @@ y_k &= Cx_k
 ### Mamba架构
 
 **选择性SSM**：
-```python
-class MambaBlock(nn.Module):
-    def __init__(self, d_model, d_state=16):
-        super().__init__()
-        self.d_state = d_state
+Mamba块实现了选择性状态空间模型，通过数据依赖的门控机制增强了传统SSM的表达能力。模型包含状态维度d_state（通常为16），远小于模型维度d_model，实现了高效的状态压缩。
 
-        # 投影
-        self.in_proj = nn.Linear(d_model, d_model * 2)
+核心组件包括：输入投影层将d_model维输入扩展到2*d_model维，然后分割为门控信号z和内容信号r。SSM参数包括状态转移矩阵A（d_state×d_state）、输入矩阵B和输出矩阵C（均将d_model映射到d_state），以及直通参数D。
 
-        # SSM参数
-        self.A = nn.Parameter(torch.randn(d_state, d_state))
-        self.B = nn.Linear(d_model, d_state)
-        self.C = nn.Linear(d_model, d_state)
-        self.D = nn.Parameter(torch.randn(1))
-
-        # 输出投影
-        self.out_proj = nn.Linear(d_model, d_model)
-
-    def forward(self, x):
-        # 选择性扫描
-        z, r = self.in_proj(x).chunk(2, dim=-1)
-        z = torch.sigmoid(z)
-
-        # SSM
-        h = torch.zeros(x.shape[0], self.d_state)
-        outputs = []
-
-        for t in range(x.shape[1]):
-            h = torch.tanh(self.A @ h + self.B(x[:, t]))
-            y = self.C(x[:, t]) @ h + self.D * x[:, t]
-            outputs.append(y * z[:, t])
-
-        output = torch.stack(outputs, dim=1)
-        return self.out_proj(output)
-```
+前向传播过程执行选择性扫描：首先通过sigmoid激活得到门控值z。然后初始化隐状态h为零向量，对序列的每个时间步t进行迭代：使用状态方程h = tanh(A@h + B(x_t))更新隐状态，通过输出方程y = C(x_t)@h + D*x_t计算输出，并用门控值z_t调制输出。所有时间步的输出堆叠后通过输出投影层得到最终结果。这种选择性机制让模型能够动态地决定保留或遗忘信息。
 
 **并行扫描算法**：
 利用关联性质并行化：
@@ -567,29 +355,13 @@ $$y_i = C\left(\prod_{j=1}^i \bar{A}\right) \bar{B}u_0 + ... + C\bar{B}u_i$$
 ### 视频生成中的应用
 
 **时空SSM**：
-```python
-class SpatioTemporalSSM(nn.Module):
-    def __init__(self, d_model):
-        super().__init__()
-        self.temporal_ssm = MambaBlock(d_model)
-        self.spatial_ssm = MambaBlock(d_model)
+时空SSM通过分离时间和空间维度的处理来高效建模视频数据。模型包含两个独立的Mamba块，分别负责时间和空间维度的序列建模。
 
-    def forward(self, video_tokens):
-        # video_tokens: [B, T, H, W, D]
-        B, T, H, W, D = video_tokens.shape
+处理流程针对视频token张量（维度为[B, T, H, W, D]，分别表示批次、时间、高度、宽度和特征维度）进行两阶段处理。首先进行时间维度SSM：将输入重塑为(B*H*W, T, D)，让每个空间位置独立地进行时序建模，捕获时间动态。处理后恢复原始形状。
 
-        # 时间维度SSM
-        temporal_out = self.temporal_ssm(
-            video_tokens.reshape(B*H*W, T, D)
-        ).reshape(B, T, H, W, D)
+接着进行空间维度SSM：将时间SSM的输出重塑为(B*T, H*W, D)，让每个时间步独立地进行空间建模，捕获空间关系。空间维度被展平为H*W的序列进行处理，最后恢复到原始的五维张量形状。
 
-        # 空间维度SSM
-        spatial_out = self.spatial_ssm(
-            temporal_out.reshape(B*T, H*W, D)
-        ).reshape(B, T, H, W, D)
-
-        return spatial_out
-```
+这种分解策略将复杂的时空建模问题简化为两个独立的序列建模任务，既保持了计算效率（线性复杂度），又能有效捕获视频的时空结构。
 
 ### 长程建模优势
 
@@ -604,23 +376,9 @@ class SpatioTemporalSSM(nn.Module):
 自然满足自回归要求。
 
 **训练效率**：
-```python
-def efficient_mamba_training(sequences, model):
-    # 并行处理多个序列
-    states = initialize_states(batch_size)
+Mamba的高效训练策略通过并行扫描和梯度检查点技术优化内存和计算。首先初始化批次大小的状态向量，用于维护序列的历史信息。训练时将长序列分块处理，每个块通过并行扫描算法同时处理多个序列位置，避免了顺序依赖带来的计算瓶颈。
 
-    all_outputs = []
-    for chunk in chunk_sequences(sequences):
-        # 并行扫描
-        outputs, states = parallel_scan(chunk, states, model)
-        all_outputs.append(outputs)
-
-        # 梯度检查点
-        if should_checkpoint():
-            checkpoint(outputs)
-
-    return concat(all_outputs)
-```
+并行扫描利用状态空间模型的关联性质，将原本的O(n)顺序计算转换为O(log n)的并行计算深度。处理每个块后，更新状态向量以传递历史信息到下一块。同时，通过梯度检查点技术选择性地保存中间激活，在反向传播时重新计算，以时间换空间，降低内存占用。所有块的输出最终拼接形成完整结果。这种策略使得Mamba能够高效处理超长序列，同时保持合理的内存消耗。
 
 ## 本章小结
 

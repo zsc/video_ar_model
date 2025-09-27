@@ -164,86 +164,26 @@ $$\mathcal{L}_{pixel} = \mathbb{E}_{t}\left[|I_{t+1} - \hat{I}_{t+1}|_p\right]$$
 <p><strong>特征级预测</strong>：
 $$\mathcal{L}_{feature} = \sum_{l} \lambda_l |\phi_l(I_{t+1}) - \phi_l(\hat{I}_{t+1})|_2$$
 使用预训练网络的中间层特征。</p>
-<p><strong>结构级预测</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">structural_prediction_loss</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-    <span class="c1"># SSIM损失</span>
-    <span class="n">ssim_loss</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">ssim</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-
-    <span class="c1"># 边缘损失</span>
-    <span class="n">edge_pred</span> <span class="o">=</span> <span class="n">sobel_filter</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
-    <span class="n">edge_target</span> <span class="o">=</span> <span class="n">sobel_filter</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-    <span class="n">edge_loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">edge_pred</span><span class="p">,</span> <span class="n">edge_target</span><span class="p">)</span>
-
-    <span class="c1"># 光流一致性</span>
-    <span class="n">flow</span> <span class="o">=</span> <span class="n">compute_optical_flow</span><span class="p">(</span><span class="n">target</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">target</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-    <span class="n">warped</span> <span class="o">=</span> <span class="n">warp_frames</span><span class="p">(</span><span class="n">pred</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">flow</span><span class="p">)</span>
-    <span class="n">flow_loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">warped</span><span class="p">,</span> <span class="n">pred</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-
-    <span class="k">return</span> <span class="n">ssim_loss</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">edge_loss</span> <span class="o">+</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">flow_loss</span>
-</code></pre></div>
-
+<p><strong>结构级预测</strong>：
+结构级预测损失通过多个互补的损失项确保预测视频的结构完整性。首先计算SSIM（结构相似性）损失，用1减去SSIM值，捕获图像的结构信息而非单纯的像素差异。</p>
+<p>边缘损失通过Sobel滤波器提取预测和目标帧的边缘图，然后计算L1损失，确保物体轮廓和场景结构的准确性。这对保持车辆、道路边界等关键元素的清晰度至关重要。</p>
+<p>光流一致性损失确保时序连贯性：首先计算目标视频连续帧间的光流，然后用此光流对预测帧进行扭曲变换，检查变换后是否与下一预测帧一致。最终损失是三项的加权和，权重经验值为SSIM:边缘:光流 = 1:0.1:0.05，平衡结构准确性和时序平滑性。</p>
 <h3 id="_2">条件视频生成</h3>
 <p><strong>轨迹条件预测</strong>：
 $$\hat{V}_{t:t+H} = f_\theta(V_{t-C:t}, T_{t:t+H})$$
 其中$T$为未来轨迹条件。</p>
-<p><strong>语义地图条件</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">SemanticConditionedPredictor</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">video_encoder</span> <span class="o">=</span> <span class="n">VideoEncoder</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">semantic_encoder</span> <span class="o">=</span> <span class="n">SemanticMapEncoder</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span> <span class="o">=</span> <span class="n">VideoDecoder</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">past_video</span><span class="p">,</span> <span class="n">future_semantic_map</span><span class="p">):</span>
-        <span class="c1"># 编码历史视频</span>
-        <span class="n">video_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video_encoder</span><span class="p">(</span><span class="n">past_video</span><span class="p">)</span>
-
-        <span class="c1"># 编码未来语义地图</span>
-        <span class="n">semantic_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">semantic_encoder</span><span class="p">(</span><span class="n">future_semantic_map</span><span class="p">)</span>
-
-        <span class="c1"># Cross-attention融合</span>
-        <span class="n">fused</span> <span class="o">=</span> <span class="n">cross_attention</span><span class="p">(</span><span class="n">video_features</span><span class="p">,</span> <span class="n">semantic_features</span><span class="p">)</span>
-
-        <span class="c1"># 解码未来视频</span>
-        <span class="n">future_video</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span><span class="p">(</span><span class="n">fused</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">future_video</span>
-</code></pre></div>
-
+<p><strong>语义地图条件</strong>：
+语义条件预测器使用未来语义地图指导视频生成，实现可控的长期预测。模型包含三个主要组件：视频编码器处理历史帧序列，语义地图编码器提取未来场景的结构信息，视频解码器生成条件化的未来帧。</p>
+<p>前向传播时，历史视频通过视频编码器提取时空特征，捕获运动模式和场景上下文。未来语义地图（如道路布局、车道线、交通元素位置）通过专门的编码器转换为语义特征表示。</p>
+<p>关键的融合步骤使用交叉注意力机制：视频特征作为查询，语义特征作为键值对，让模型学习如何将历史动态与未来场景结构对齐。融合后的特征通过解码器生成符合语义约束的未来视频。这种条件化机制确保生成的视频既保持时序连贯性，又遵循给定的场景布局，特别适合自动驾驶的规划场景模拟。</p>
 <h3 id="_3">不确定性建模</h3>
 <p><strong>概率视频预测</strong>：
 使用VAE建模不确定性：
 $$p(V_{t+1}|V_{\leq t}) = \int p(V_{t+1}|z, V_{\leq t})p(z|V_{\leq t})dz$$
-<strong>多模态预测</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MultiModalVideoPredictor</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_modes</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_modes</span> <span class="o">=</span> <span class="n">num_modes</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">VideoEncoder</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
-
-        <span class="c1"># 多个预测头</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">prediction_heads</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
-            <span class="n">PredictionHead</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_modes</span><span class="p">)</span>
-        <span class="p">])</span>
-
-        <span class="c1"># 模态选择网络</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mode_selector</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_modes</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">past_video</span><span class="p">):</span>
-        <span class="n">features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="p">(</span><span class="n">past_video</span><span class="p">)</span>
-
-        <span class="c1"># 预测每个模态的概率</span>
-        <span class="n">mode_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_selector</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-        <span class="n">mode_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">mode_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># 生成多个预测</span>
-        <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">head</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_heads</span><span class="p">:</span>
-            <span class="n">pred</span> <span class="o">=</span> <span class="n">head</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-            <span class="n">predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">mode_probs</span>
-</code></pre></div>
-
+<strong>多模态预测</strong>：
+多模态视频预测器通过多个专门的预测头捕获未来的不确定性和多样性。模型初始化num_modes个独立的预测头，每个代表一种可能的未来演化模式（如车辆左转、直行、右转等）。</p>
+<p>编码器提取历史视频的特征表示后，模态选择网络通过对特征进行平均池化并线性变换，预测每个模态的概率分布。这个分布反映了不同未来场景的可能性。</p>
+<p>每个预测头独立处理编码特征，生成对应模态的未来视频预测。这种设计允许模型学习不同的行为模式：激进驾驶vs保守驾驶、快速变道vs缓慢跟车等。返回所有预测及其概率，下游任务可以根据需要选择最可能的预测或考虑所有可能性进行规划。这种多模态建模对处理交通场景的内在不确定性至关重要，避免了平均化导致的模糊预测。</p>
 <p><strong>时序一致性约束</strong>：
 $$\mathcal{L}_{temporal} = \sum_{t} |\mathcal{F}(V_t, V_{t+1}) - \mathcal{F}(\hat{V}_t, \hat{V}_{t+1})|$$
 其中$\mathcal{F}$计算帧间转换（光流、仿射变换等）。</p>
@@ -296,92 +236,22 @@ $$\mathcal{L}_{det} = \mathcal{L}_{cls} + \lambda_{loc} \mathcal{L}_{loc} + \lam
 <li>尺寸回归损失</li>
 <li>朝向回归损失</li>
 </ul>
-<p><strong>时序检测关联</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">temporal_detection_loss</span><span class="p">(</span><span class="n">detections_sequence</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;跨帧检测一致性损失&quot;&quot;&quot;</span>
-    <span class="n">loss</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">detections_sequence</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">curr_dets</span> <span class="o">=</span> <span class="n">detections_sequence</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
-        <span class="n">next_dets</span> <span class="o">=</span> <span class="n">detections_sequence</span><span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-
-        <span class="c1"># 匹配跨帧检测</span>
-        <span class="n">matches</span> <span class="o">=</span> <span class="n">hungarian_matching</span><span class="p">(</span><span class="n">curr_dets</span><span class="p">,</span> <span class="n">next_dets</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
-            <span class="c1"># 运动一致性</span>
-            <span class="n">expected_pos</span> <span class="o">=</span> <span class="n">curr_dets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">curr_dets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">velocity</span> <span class="o">*</span> <span class="n">dt</span>
-            <span class="n">actual_pos</span> <span class="o">=</span> <span class="n">next_dets</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">position</span>
-            <span class="n">loss</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">expected_pos</span> <span class="o">-</span> <span class="n">actual_pos</span><span class="p">)</span>
-
-            <span class="c1"># 外观一致性</span>
-            <span class="n">loss</span> <span class="o">+=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">cosine_similarity</span><span class="p">(</span><span class="n">curr_dets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">features</span><span class="p">,</span>
-                                         <span class="n">next_dets</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">loss</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">detections_sequence</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-</code></pre></div>
-
+<p><strong>时序检测关联</strong>：
+时序检测关联损失确保目标检测在连续帧间的一致性。算法遍历检测序列的相邻帧，使用匈牙利匹配算法建立当前帧和下一帧检测框的最优对应关系，解决多目标关联问题。</p>
+<p>对每个匹配对计算两种一致性约束：运动一致性基于物理模型，使用当前位置和速度预测下一帧位置，与实际检测位置的L2距离作为损失，确保运动轨迹的平滑性。外观一致性通过计算检测框特征向量的余弦相似度，用1减去相似度值作为损失项，保证同一物体在不同帧具有相似的视觉特征。</p>
+<p>最终返回所有帧对的平均损失，这种设计促使模型学习时序稳定的检测，减少误检和漏检，对构建可靠的多目标跟踪系统至关重要。</p>
 <h3 id="_5">全景分割任务</h3>
-<p><strong>实例与语义联合</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">PanopticHead</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">,</span> <span class="n">max_instances</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="c1"># 语义分割分支</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">semantic_head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># 实例分割分支</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">instance_embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">instance_decoder</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">TransformerDecoder</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">TransformerDecoderLayer</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
-            <span class="n">num_layers</span><span class="o">=</span><span class="mi">3</span>
-        <span class="p">)</span>
-
-        <span class="c1"># 实例查询</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">instance_queries</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">max_instances</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">features</span><span class="p">):</span>
-        <span class="c1"># 语义分割</span>
-        <span class="n">semantic_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">semantic_head</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-
-        <span class="c1"># 实例嵌入</span>
-        <span class="n">instance_embeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instance_embed</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-
-        <span class="c1"># Transformer解码实例</span>
-        <span class="n">instance_masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instance_decoder</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">instance_queries</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-            <span class="n">instance_embeds</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s1">&#39;semantic&#39;</span><span class="p">:</span> <span class="n">semantic_logits</span><span class="p">,</span>
-            <span class="s1">&#39;instances&#39;</span><span class="p">:</span> <span class="n">instance_masks</span>
-        <span class="p">}</span>
-</code></pre></div>
-
+<p><strong>实例与语义联合</strong>：
+全景分割头同时处理语义分割（stuff）和实例分割（things），实现场景的完整理解。模型包含两个并行分支：语义分割使用1x1卷积直接预测每个像素的类别；实例分割使用Transformer架构处理可数物体。</p>
+<p>语义分支通过单层卷积将特征映射到类别数维度，适合处理背景类如道路、天空等。实例分支首先用卷积层生成64维的实例嵌入，然后通过Transformer解码器处理。</p>
+<p>关键创新是使用可学习的实例查询（max_instances个），类似于DETR的对象查询机制。这些查询通过与实例嵌入的交互，学习定位和分割场景中的不同实例。Transformer解码器将空间特征展平并置换维度，实现查询与特征的全局交互。</p>
+<p>最终返回语义分割logits和实例mask，下游处理将两者融合生成全景分割结果。这种设计统一了语义和实例分割，避免了传统两阶段方法的冲突，特别适合自动驾驶场景的完整理解。</p>
 <h3 id="_6">任务间知识传递</h3>
-<p><strong>检测引导的视频预测</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">detection_guided_prediction</span><span class="p">(</span><span class="n">video_features</span><span class="p">,</span> <span class="n">detections</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;使用检测结果改善视频预测&quot;&quot;&quot;</span>
-
-    <span class="c1"># 构建物体中心的注意力mask</span>
-    <span class="n">attention_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">video_features</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-    <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">:</span>
-        <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">bbox</span>
-        <span class="n">attention_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">y1</span><span class="p">:</span><span class="n">y2</span><span class="p">,</span> <span class="n">x1</span><span class="p">:</span><span class="n">x2</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-
-    <span class="c1"># 物体感知的特征增强</span>
-    <span class="n">object_features</span> <span class="o">=</span> <span class="n">video_features</span> <span class="o">*</span> <span class="n">attention_mask</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">background_features</span> <span class="o">=</span> <span class="n">video_features</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">attention_mask</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="c1"># 分别处理前景和背景</span>
-    <span class="n">object_pred</span> <span class="o">=</span> <span class="n">object_predictor</span><span class="p">(</span><span class="n">object_features</span><span class="p">)</span>
-    <span class="n">bg_pred</span> <span class="o">=</span> <span class="n">background_predictor</span><span class="p">(</span><span class="n">background_features</span><span class="p">)</span>
-
-    <span class="c1"># 组合预测</span>
-    <span class="k">return</span> <span class="n">object_pred</span> <span class="o">+</span> <span class="n">bg_pred</span>
-</code></pre></div>
-
+<p><strong>检测引导的视频预测</strong>：
+检测引导预测利用目标检测结果改善视频生成质量。算法首先根据检测框构建空间注意力mask，将场景分为前景物体和背景区域。</p>
+<p>对于每个检测框，在对应的空间位置设置mask值为1，形成物体中心的注意力图。然后将视频特征分解为两部分：物体特征通过与注意力mask相乘提取，背景特征通过与反向mask相乘获得。</p>
+<p>关键思想是使用不同的预测器处理前景和背景：object_predictor专注于物体运动模式的建模，如车辆轨迹、行人动作等；background_predictor处理静态场景元素，如道路、建筑物等。最后将两路预测相加得到完整输出。</p>
+<p>这种分离处理策略的优势在于：1）物体和背景有不同的运动特性，分别建模更准确；2）检测框提供了强监督信号，指导模型关注重要区域；3）避免了物体运动被背景平均化的问题，生成更清晰的视频。</p>
 <p><strong>Rule of Thumb</strong>：</p>
 <ul>
 <li>检测类别数：10-20（车、人、骑行者等）</li>
@@ -394,115 +264,25 @@ $$\mathcal{L}_{det} = \mathcal{L}_{cls} + \lambda_{loc} \mathcal{L}_{loc} + \lam
 <p><strong>尺度不变深度损失</strong>：
 $$\mathcal{L}_{depth} = \sqrt{\frac{1}{n}\sum_i d_i^2 - \frac{1}{n^2}(\sum_i d_i)^2}$$
 其中$d_i = \log \hat{D}_i - \log D_i$。</p>
-<p><strong>多尺度深度预测</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MultiScaleDepth</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">decoders</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
-            <span class="n">DepthDecoder</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">scale</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">]</span>
-        <span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">features_pyramid</span><span class="p">):</span>
-        <span class="n">predictions</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">decoder</span><span class="p">,</span> <span class="n">features</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">decoders</span><span class="p">,</span> <span class="n">features_pyramid</span><span class="p">):</span>
-            <span class="n">depth</span> <span class="o">=</span> <span class="n">decoder</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-            <span class="n">predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
-
-        <span class="c1"># 上采样到原始分辨率</span>
-        <span class="n">depths_upsampled</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">predictions</span><span class="p">):</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">i</span>
-            <span class="k">if</span> <span class="n">scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">depth</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span> <span class="n">scale_factor</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
-            <span class="n">depths_upsampled</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
-
-        <span class="c1"># 加权融合</span>
-        <span class="n">weights</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_weights</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="n">final_depth</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">d</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">depths_upsampled</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="n">final_depth</span><span class="p">,</span> <span class="n">predictions</span>
-</code></pre></div>
-
+<p><strong>多尺度深度预测</strong>：
+多尺度深度预测通过处理不同分辨率的特征来捕获场景的全局结构和局部细节。模型为每个尺度（1x、2x、4x、8x）配置专门的深度解码器，分别处理特征金字塔的不同层级。</p>
+<p>前向传播时，每个解码器处理对应尺度的特征，生成该分辨率下的深度图。粗尺度捕获全局几何，细尺度保留边缘细节。然后将所有预测上采样到原始分辨率：根据尺度因子2^i进行双线性插值，确保空间对齐。</p>
+<p>关键创新是使用可学习的尺度权重进行自适应融合。通过softmax归一化确保权重和为1，然后加权组合所有尺度的深度图。这种设计让模型自动学习不同尺度的重要性：远处物体可能更依赖粗尺度，近处细节更依赖细尺度。返回融合深度图和各尺度预测，后者可用于多尺度监督训练。</p>
 <h3 id="3d_1">3D占用网格预测</h3>
 <p><strong>体素化表示</strong>：
 $$O_{xyz} = \sigma(f_\theta(F_{BEV}, z))$$
 其中$O \in [0,1]^{X \times Y \times Z}$表示占用概率。</p>
-<p><strong>稀疏3D卷积</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">Sparse3DReconstruction</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">voxel_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">voxel_size</span> <span class="o">=</span> <span class="n">voxel_size</span>
-
-        <span class="c1"># 2D到3D提升</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lift_net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">128</span> <span class="o">*</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 16个高度层</span>
-        <span class="p">)</span>
-
-        <span class="c1"># 稀疏3D处理</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sparse_conv</span> <span class="o">=</span> <span class="n">spconv</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">spconv</span><span class="o">.</span><span class="n">SubMConv3d</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">spconv</span><span class="o">.</span><span class="n">SubMConv3d</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">spconv</span><span class="o">.</span><span class="n">SubMConv3d</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 占用概率</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bev_features</span><span class="p">):</span>
-        <span class="n">batch</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">bev_features</span><span class="o">.</span><span class="n">shape</span>
-
-        <span class="c1"># 提升到3D</span>
-        <span class="n">lifted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lift_net</span><span class="p">(</span><span class="n">bev_features</span><span class="p">)</span>
-        <span class="n">lifted</span> <span class="o">=</span> <span class="n">lifted</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span>
-        <span class="n">lifted</span> <span class="o">=</span> <span class="n">lifted</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># [B, Z, H, W, C]</span>
-
-        <span class="c1"># 转换为稀疏表示</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">lifted</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">)</span>
-        <span class="n">features</span> <span class="o">=</span> <span class="n">lifted</span><span class="p">[</span><span class="n">indices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">indices</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
-                         <span class="n">indices</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">indices</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]]</span>
-
-        <span class="n">sparse_tensor</span> <span class="o">=</span> <span class="n">spconv</span><span class="o">.</span><span class="n">SparseConvTensor</span><span class="p">(</span>
-            <span class="n">features</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span>
-            <span class="n">spatial_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">],</span>
-            <span class="n">batch_size</span><span class="o">=</span><span class="n">batch</span>
-        <span class="p">)</span>
-
-        <span class="c1"># 稀疏卷积处理</span>
-        <span class="n">occupancy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_conv</span><span class="p">(</span><span class="n">sparse_tensor</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">occupancy</span>
-</code></pre></div>
-
+<p><strong>稀疏3D卷积</strong>：
+稀疏3D重建使用稀疏卷积高效处理体素化的3D空间。模型首先通过提升网络将2D BEV特征扩展到3D：两层卷积将256维特征映射到128×16维，其中16代表高度层数。</p>
+<p>提升后的特征reshape为[batch, 128, 16, H, W]的5D张量，表示带高度的3D网格。关键优化是稀疏表示：只处理非零体素。通过计算特征绝对值之和并设定阈值（0.1）筛选活跃体素，提取其索引和特征值。</p>
+<p>稀疏卷积处理使用SubMConv3d（子流形卷积），保持稀疏性的同时进行3D特征提取。网络包含三层：两层特征提取（128→64维）和一层占用预测（64→1维）。每层配备批归一化和ReLU激活。</p>
+<p>最终输出每个体素的占用概率。这种稀疏处理策略相比密集3D卷积节省90%以上的计算量，因为自动驾驶场景中大部分空间是空的。体素大小0.2米提供了精度和效率的良好平衡。</p>
 <h3 id="_8">表面法向量估计</h3>
 <p><strong>法向量一致性</strong>：
 $$\mathcal{L}_{normal} = \frac{1}{|\Omega|}\sum_{p \in \Omega} (1 - \mathbf{n}_p^T \hat{\mathbf{n}}_p)$$
-<strong>几何约束</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">geometric_consistency_loss</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span> <span class="n">normal</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;深度与法向量的几何一致性&quot;&quot;&quot;</span>
-
-    <span class="c1"># 从深度计算法向量</span>
-    <span class="n">grad_x</span> <span class="o">=</span> <span class="n">depth</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">depth</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">grad_y</span> <span class="o">=</span> <span class="n">depth</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">depth</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
-
-    <span class="c1"># 叉积得到法向量</span>
-    <span class="n">normal_from_depth</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">grad_x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">grad_x</span><span class="p">),</span>
-                     <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">grad_x</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">grad_y</span><span class="p">),</span> <span class="n">grad_y</span><span class="p">,</span>
-                     <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">grad_y</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
-        <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span>
-    <span class="p">)</span>
-    <span class="n">normal_from_depth</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">normal_from_depth</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="c1"># 一致性损失</span>
-    <span class="n">consistency</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">normal</span> <span class="o">*</span> <span class="n">normal_from_depth</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">consistency</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
-</code></pre></div>
-
+<strong>几何约束</strong>：
+几何一致性损失确保深度图与法向量的物理一致性。算法首先从深度图计算空间梯度：通过相邻像素差分得到x和y方向的深度变化。然后构造3D向量，x方向为[grad_x, 0, 1]，y方向为[0, grad_y, 1]，其中1代表单位深度步长。</p>
+<p>通过两个方向向量的叉积计算表面法向量，并归一化到单位长度。这个从深度导出的法向量应该与网络预测的法向量一致。一致性通过点积衡量，理想情况下为1（完全对齐）。损失函数计算1减去点积的均值，确保深度和法向量预测遵循相同的几何结构。这种约束提高了3D重建的物理合理性和准确性。</p>
 <p><strong>Rule of Thumb</strong>：</p>
 <ul>
 <li>深度范围：0.5-100m</li>
@@ -514,134 +294,27 @@ $$\mathcal{L}_{normal} = \frac{1}{|\Omega|}\sum_{p \in \Omega} (1 - \mathbf{n}_p
 <h3 id="lidar-camera">LiDAR-Camera投影对齐</h3>
 <p><strong>点云投影</strong>：
 $$\mathbf{p}_{img} = \mathbf{K} \cdot \mathbf{T}_{cam}^{lidar} \cdot \mathbf{P}_{3D}$$
-<strong>深度补全网络</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">DepthCompletion</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sparse_encoder</span> <span class="o">=</span> <span class="n">SparseConvNet</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rgb_encoder</span> <span class="o">=</span> <span class="n">ResNet</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fusion</span> <span class="o">=</span> <span class="n">FusionModule</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span> <span class="o">=</span> <span class="n">DepthDecoder</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sparse_depth</span><span class="p">,</span> <span class="n">rgb_image</span><span class="p">):</span>
-        <span class="c1"># 编码稀疏深度</span>
-        <span class="n">sparse_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_encoder</span><span class="p">(</span><span class="n">sparse_depth</span><span class="p">)</span>
-
-        <span class="c1"># 编码RGB</span>
-        <span class="n">rgb_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rgb_encoder</span><span class="p">(</span><span class="n">rgb_image</span><span class="p">)</span>
-
-        <span class="c1"># 融合</span>
-        <span class="n">fused</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fusion</span><span class="p">(</span><span class="n">sparse_features</span><span class="p">,</span> <span class="n">rgb_features</span><span class="p">)</span>
-
-        <span class="c1"># 解码密集深度</span>
-        <span class="n">dense_depth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoder</span><span class="p">(</span><span class="n">fused</span><span class="p">)</span>
-
-        <span class="c1"># 保持LiDAR点的精确值</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">sparse_depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
-        <span class="n">final_depth</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">*</span> <span class="n">sparse_depth</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mask</span><span class="p">)</span> <span class="o">*</span> <span class="n">dense_depth</span>
-
-        <span class="k">return</span> <span class="n">final_depth</span>
-</code></pre></div>
-
+<strong>深度补全网络</strong>：
+深度补全网络融合稀疏LiDAR深度和密集RGB图像生成完整深度图。网络包含两个编码器分支：稀疏卷积网络处理LiDAR投影的稀疏深度图，保留精确的几何信息；ResNet编码器提取RGB图像的纹理和语义特征，提供密集的场景理解。</p>
+<p>融合模块将两种模态的特征结合，利用RGB的密集信息填补LiDAR的稀疏空隙，同时保持LiDAR的高精度深度值。解码器将融合特征转换为密集深度预测。</p>
+<p>关键设计是保真约束：通过mask识别有LiDAR观测的位置，在这些位置直接使用原始LiDAR值，只在无观测区域使用网络预测。这确保了已知深度点的精确性不被破坏，同时利用学习能力填补缺失区域。最终输出结合了LiDAR的精度和视觉的完整性。</p>
 <h3 id="_9">点云序列运动估计</h3>
 <p><strong>场景流估计</strong>：
 $$\mathcal{L}_{flow} = \sum_{i} |\mathbf{p}_i^{t+1} - (\mathbf{p}_i^t + \mathbf{f}_i)|_2 + \lambda |\mathbf{f}_i|_2$$
-<strong>动静点分离</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">dynamic_static_segmentation</span><span class="p">(</span><span class="n">point_cloud_seq</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;分离动态和静态点&quot;&quot;&quot;</span>
-
-    <span class="c1"># 计算点云间的对应关系</span>
-    <span class="n">correspondences</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">point_cloud_seq</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">corr</span> <span class="o">=</span> <span class="n">nearest_neighbor_matching</span><span class="p">(</span>
-            <span class="n">point_cloud_seq</span><span class="p">[</span><span class="n">t</span><span class="p">],</span>
-            <span class="n">point_cloud_seq</span><span class="p">[</span><span class="n">t</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-        <span class="p">)</span>
-        <span class="n">correspondences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span>
-
-    <span class="c1"># RANSAC拟合自车运动</span>
-    <span class="n">ego_motion</span> <span class="o">=</span> <span class="n">ransac_rigid_transform</span><span class="p">(</span><span class="n">correspondences</span><span class="p">)</span>
-
-    <span class="c1"># 补偿自车运动后的残差</span>
-    <span class="n">residuals</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">corr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">correspondences</span><span class="p">):</span>
-        <span class="n">compensated</span> <span class="o">=</span> <span class="n">apply_transform</span><span class="p">(</span><span class="n">point_cloud_seq</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="n">ego_motion</span><span class="p">[</span><span class="n">t</span><span class="p">])</span>
-        <span class="n">residual</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">compensated</span> <span class="o">-</span> <span class="n">point_cloud_seq</span><span class="p">[</span><span class="n">t</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span>
-
-    <span class="c1"># 阈值分割</span>
-    <span class="n">dynamic_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">residuals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.2</span>  <span class="c1"># 20cm阈值</span>
-
-    <span class="k">return</span> <span class="n">dynamic_mask</span><span class="p">,</span> <span class="n">ego_motion</span>
-</code></pre></div>
-
+<strong>动静点分离</strong>：
+动静点分离算法通过运动分析区分场景中的静态背景和动态物体。首先对点云序列的连续帧进行最近邻匹配，建立帧间点的对应关系。这些对应关系包含了自车运动和物体运动的混合信息。</p>
+<p>使用RANSAC算法拟合刚体变换，估计自车运动参数。RANSAC的鲁棒性确保动态物体点不会影响自车运动估计。然后对每帧点云应用估计的自车运动补偿，将其转换到下一帧的坐标系。</p>
+<p>补偿后计算每个点到其对应点的残差距离。静态点在补偿后应该精确对齐（残差接近0），而动态点由于自身运动会有较大残差。通过设定阈值（如20cm）分割动静点：超过阈值的被标记为动态点，属于运动物体；低于阈值的为静态点，属于背景环境。这种方法为后续的物体跟踪和场景理解提供基础。</p>
 <h3 id="_10">多模态一致性学习</h3>
-<p><strong>跨模态蒸馏</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">CrossModalDistillation</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lidar_teacher</span> <span class="o">=</span> <span class="n">LiDARNet</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">camera_student</span> <span class="o">=</span> <span class="n">CameraNet</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">align_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lidar_data</span><span class="p">,</span> <span class="n">camera_data</span><span class="p">):</span>
-        <span class="c1"># Teacher预测</span>
-        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-            <span class="n">teacher_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lidar_teacher</span><span class="p">(</span><span class="n">lidar_data</span><span class="p">)</span>
-            <span class="n">teacher_pred</span> <span class="o">=</span> <span class="n">teacher_features</span><span class="p">[</span><span class="s1">&#39;occupancy&#39;</span><span class="p">]</span>
-
-        <span class="c1"># Student预测</span>
-        <span class="n">student_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">camera_student</span><span class="p">(</span><span class="n">camera_data</span><span class="p">)</span>
-        <span class="n">student_pred</span> <span class="o">=</span> <span class="n">student_features</span><span class="p">[</span><span class="s1">&#39;occupancy&#39;</span><span class="p">]</span>
-
-        <span class="c1"># 特征对齐</span>
-        <span class="n">student_aligned</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">align_proj</span><span class="p">(</span><span class="n">student_features</span><span class="p">[</span><span class="s1">&#39;features&#39;</span><span class="p">])</span>
-
-        <span class="c1"># 蒸馏损失</span>
-        <span class="n">distill_loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">kl_div</span><span class="p">(</span>
-            <span class="n">F</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">student_pred</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-            <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">teacher_pred</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-            <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;batchmean&#39;</span>
-        <span class="p">)</span>
-
-        <span class="c1"># 特征匹配损失</span>
-        <span class="n">feature_loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">student_aligned</span><span class="p">,</span> <span class="n">teacher_features</span><span class="p">[</span><span class="s1">&#39;features&#39;</span><span class="p">])</span>
-
-        <span class="k">return</span> <span class="n">distill_loss</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">feature_loss</span>
-</code></pre></div>
-
+<p><strong>跨模态蒸馏</strong>：
+跨模态蒸馏使用精确的LiDAR网络作为教师指导相机网络学习。教师网络处理LiDAR数据生成高质量的占用预测和特征表示，这些预测在不计算梯度的情况下作为监督信号。学生网络（相机）尝试从RGB图像中学习相同的表示。</p>
+<p>特征对齐层将学生特征投影到教师特征空间，确保维度匹配。蒸馏损失使用KL散度衡量学生和教师预测分布的差异，温度参数软化概率分布，使学生能学习到更多的暗知识（dark knowledge）。</p>
+<p>特征匹配损失直接约束中间表示的相似性，使学生不仅学习最终预测，还学习内部表示结构。两个损失的组合（蒸馏损失 + 0.5×特征损失）确保学生网络能够从视觉输入中学习LiDAR级别的几何理解，实现用相机替代昂贵LiDAR的目标。</p>
 <h3 id="_11">点云增强视频预测</h3>
-<p><strong>几何引导的生成</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">lidar_guided_video_generation</span><span class="p">(</span><span class="n">past_frames</span><span class="p">,</span> <span class="n">future_lidar</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;使用未来LiDAR指导视频生成&quot;&quot;&quot;</span>
-
-    <span class="c1"># 编码历史帧</span>
-    <span class="n">past_encoding</span> <span class="o">=</span> <span class="n">encode_video</span><span class="p">(</span><span class="n">past_frames</span><span class="p">)</span>
-
-    <span class="c1"># 编码未来点云序列</span>
-    <span class="n">lidar_encoding</span> <span class="o">=</span> <span class="n">encode_point_cloud_sequence</span><span class="p">(</span><span class="n">future_lidar</span><span class="p">)</span>
-
-    <span class="c1"># 投影点云到图像平面</span>
-    <span class="n">projected_depth</span> <span class="o">=</span> <span class="n">project_lidar_to_image_plane</span><span class="p">(</span><span class="n">future_lidar</span><span class="p">)</span>
-
-    <span class="c1"># 条件生成</span>
-    <span class="n">generated_frames</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">hidden</span> <span class="o">=</span> <span class="n">past_encoding</span>
-
-    <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">depth_t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">projected_depth</span><span class="p">):</span>
-        <span class="c1"># Cross-attention with LiDAR</span>
-        <span class="n">hidden</span> <span class="o">=</span> <span class="n">cross_attention</span><span class="p">(</span><span class="n">hidden</span><span class="p">,</span> <span class="n">lidar_encoding</span><span class="p">[</span><span class="n">t</span><span class="p">])</span>
-
-        <span class="c1"># 深度条件解码</span>
-        <span class="n">frame</span> <span class="o">=</span> <span class="n">decode_with_depth</span><span class="p">(</span><span class="n">hidden</span><span class="p">,</span> <span class="n">depth_t</span><span class="p">)</span>
-        <span class="n">generated_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-
-        <span class="c1"># 更新隐状态</span>
-        <span class="n">hidden</span> <span class="o">=</span> <span class="n">update_hidden</span><span class="p">(</span><span class="n">hidden</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">generated_frames</span><span class="p">)</span>
-</code></pre></div>
-
+<p><strong>几何引导的生成</strong>：
+LiDAR引导的视频生成使用未来点云的几何信息约束视频预测。算法首先编码历史视频帧提取时序特征，同时编码未来点云序列获取几何结构信息。关键步骤是将3D点云投影到2D图像平面，生成稀疏但精确的深度图。</p>
+<p>生成过程采用自回归方式：对每个时间步，通过交叉注意力机制将隐状态与对应时刻的LiDAR编码融合，确保生成帧与点云几何一致。深度条件解码器使用投影深度作为额外输入，强制生成的图像遵循正确的3D结构。</p>
+<p>每生成一帧后，更新隐状态以包含新生成的信息，形成时序连贯的预测。这种方法结合了视频的外观连续性和LiDAR的几何准确性，生成的视频既视觉真实又几何正确，特别适合需要精确3D一致性的自动驾驶仿真场景。</p>
 <p><strong>Rule of Thumb</strong>：</p>
 <ul>
 <li>LiDAR点数：100k-200k/frame</li>
@@ -654,123 +327,29 @@ $$\mathcal{L}_{flow} = \sum_{i} |\mathbf{p}_i^{t+1} - (\mathbf{p}_i^t + \mathbf{
 <p><strong>不确定性加权</strong>：
 $$\mathcal{L}_{total} = \sum_i \frac{1}{2\sigma_i^2} \mathcal{L}_i + \log \sigma_i$$
 其中$\sigma_i$为任务i的可学习不确定性。</p>
-<p><strong>梯度归一化</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">GradNorm</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_tasks</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_tasks</span> <span class="o">=</span> <span class="n">num_tasks</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="nf">compute_grad_norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">losses</span><span class="p">,</span> <span class="n">shared_params</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;计算各任务梯度范数&quot;&quot;&quot;</span>
-        <span class="n">grads</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">loss</span> <span class="ow">in</span> <span class="n">losses</span><span class="p">:</span>
-            <span class="n">grad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">shared_params</span><span class="p">,</span>
-                                       <span class="n">retain_graph</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">grad_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grad</span><span class="p">]))</span>
-            <span class="n">grads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grad_norm</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">grads</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">balance_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">losses</span><span class="p">,</span> <span class="n">shared_params</span><span class="p">,</span> <span class="n">loss_ratios</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;平衡各任务梯度&quot;&quot;&quot;</span>
-        <span class="n">grad_norms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_grad_norm</span><span class="p">(</span><span class="n">losses</span><span class="p">,</span> <span class="n">shared_params</span><span class="p">)</span>
-        <span class="n">mean_norm</span> <span class="o">=</span> <span class="n">grad_norms</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
-
-        <span class="c1"># 计算目标梯度范数</span>
-        <span class="n">target_grads</span> <span class="o">=</span> <span class="n">mean_norm</span> <span class="o">*</span> <span class="p">(</span><span class="n">loss_ratios</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span>
-
-        <span class="c1"># 更新权重</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_tasks</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="p">(</span><span class="n">target_grads</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">grad_norms</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
-
-        <span class="c1"># 归一化权重</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span>
-</code></pre></div>
-
+<p><strong>梯度归一化</strong>：
+GradNorm动态平衡多任务学习中的梯度贡献。类初始化可学习的任务权重（初始为1）和平衡强度参数α（默认1.5）。算法首先计算每个任务损失对共享参数的梯度范数，量化各任务的更新强度。</p>
+<p>平衡机制的核心是根据训练进度调整权重。计算所有任务梯度范数的均值作为基准，然后根据损失比例（反映训练速度）的α次幂确定每个任务的目标梯度范数。训练慢的任务（损失比例高）获得更大的目标范数。</p>
+<p>权重更新使用比例调整：将每个任务的权重乘以目标范数与实际范数的比值，使用detach()避免梯度流动。最后归一化权重使其均值为1，保持总体学习率稳定。这种自适应机制确保所有任务均衡训练，避免某些任务过度主导或被忽略，特别适合处理不同难度和收敛速度的多任务场景。</p>
 <h3 id="_13">任务优先级调度</h3>
-<p><strong>课程式任务学习</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">CurriculumMultiTask</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tasks</span><span class="p">,</span> <span class="n">difficulties</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span> <span class="o">=</span> <span class="n">tasks</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">difficulties</span> <span class="o">=</span> <span class="n">difficulties</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">progress</span> <span class="o">=</span> <span class="mi">0</span>
-
-    <span class="k">def</span> <span class="nf">get_active_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;根据训练进度激活任务&quot;&quot;&quot;</span>
-        <span class="n">active</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">for</span> <span class="n">task</span><span class="p">,</span> <span class="n">difficulty</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">difficulties</span><span class="p">):</span>
-            <span class="c1"># 简单任务先激活</span>
-            <span class="k">if</span> <span class="n">epoch</span> <span class="o">&gt;=</span> <span class="n">difficulty</span> <span class="o">*</span> <span class="mi">10</span><span class="p">:</span>
-                <span class="n">active</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">active</span>
-
-    <span class="k">def</span> <span class="nf">get_task_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;动态任务权重&quot;&quot;&quot;</span>
-        <span class="n">weights</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="k">for</span> <span class="n">task</span><span class="p">,</span> <span class="n">diff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">difficulties</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="n">diff</span> <span class="o">*</span> <span class="mi">10</span><span class="p">:</span>
-                <span class="n">weights</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">elif</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="n">diff</span> <span class="o">*</span> <span class="mi">20</span><span class="p">:</span>
-                <span class="c1"># 渐进增加权重</span>
-                <span class="n">progress</span> <span class="o">=</span> <span class="p">(</span><span class="n">epoch</span> <span class="o">-</span> <span class="n">diff</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">diff</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
-                <span class="n">weights</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">progress</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">weights</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-
-        <span class="k">return</span> <span class="n">weights</span>
-</code></pre></div>
-
+<p><strong>课程式任务学习</strong>：
+<strong>课程式多任务学习器（Curriculum Multi-Task）</strong>实现了基于难度的渐进式任务调度策略。系统维护任务列表及其难度评分，根据训练进度智能控制任务的激活和权重分配。</p>
+<p>任务激活遵循从易到难的原则：对于难度为d的任务，在训练到达d×10个epoch后才激活。这确保模型先掌握基础任务，建立稳固的特征表示，再逐步引入复杂任务。</p>
+<p>权重分配采用三阶段策略：在任务激活前（epoch &lt; d×10），权重为0，任务不参与训练；在过渡期（d×10 ≤ epoch &lt; d×20），权重线性增长，计算公式为(epoch - d×10)/(d×10)，实现平滑过渡；成熟期（epoch ≥ d×20）权重稳定在1.0，任务完全参与训练。</p>
+<p>这种设计在自动驾驶场景中特别有效：可以先训练车道检测（难度1），10个epoch后加入车辆检测（难度2），20个epoch后引入行人预测（难度3），最后添加复杂场景理解（难度4）。渐进式策略避免了早期训练的不稳定性，同时确保每个任务都有充分的学习时间，显著提升最终模型的综合性能。</p>
 <h3 id="_14">任务间冲突解决</h3>
-<p><strong>梯度手术（Gradient Surgery）</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">gradient_surgery</span><span class="p">(</span><span class="n">grads</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;修改冲突梯度使其不互相干扰&quot;&quot;&quot;</span>
-    <span class="n">num_tasks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">grads</span><span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">:</span>
-                <span class="c1"># 计算梯度内积</span>
-                <span class="n">dot_product</span> <span class="o">=</span> <span class="p">(</span><span class="n">grads</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">grads</span><span class="p">[</span><span class="n">j</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-
-                <span class="k">if</span> <span class="n">dot_product</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># 梯度冲突</span>
-                    <span class="c1"># 投影去除冲突分量</span>
-                    <span class="n">proj</span> <span class="o">=</span> <span class="n">dot_product</span> <span class="o">/</span> <span class="p">(</span><span class="n">grads</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-                    <span class="n">grads</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">grads</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">grads</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
-
-    <span class="k">return</span> <span class="n">grads</span>
-</code></pre></div>
-
+<p><strong>梯度手术（Gradient Surgery）</strong>：
+<strong>梯度手术（Gradient Surgery）</strong>通过修改冲突梯度实现任务间的和谐优化。算法遍历所有任务梯度对，计算它们的内积来检测冲突。</p>
+<p>当两个梯度内积为负时，说明它们方向相反，存在优化冲突。此时通过投影操作消除冲突：计算冲突梯度在另一梯度方向上的投影系数（内积除以梯度范数平方），然后从原梯度中减去这个投影分量，保留与其他任务不冲突的梯度成分。</p>
+<p>这种方法确保每个任务的优化不会损害其他任务的性能。在自动驾驶中，当检测任务需要锐化的局部特征而分割任务需要平滑的全局特征时，梯度手术能找到两者的共同优化方向，实现帕累托改进。算法复杂度为O(n²)，其中n为任务数，实践中任务数通常较小（3-5个），计算开销可接受。</p>
 <h3 id="_15">多任务评估指标</h3>
 <p><strong>相对改进度量</strong>：
 $$\Delta_i = \frac{M_i^{MTL} - M_i^{STL}}{M_i^{STL}}$$
 其中$M_i^{MTL}$和$M_i^{STL}$分别为多任务和单任务性能。</p>
-<p><strong>任务间相关性分析</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">task_affinity_matrix</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">tasks</span><span class="p">,</span> <span class="n">validation_data</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;计算任务相关性矩阵&quot;&quot;&quot;</span>
-    <span class="n">n_tasks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks</span><span class="p">)</span>
-    <span class="n">affinity</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_tasks</span><span class="p">,</span> <span class="n">n_tasks</span><span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">task_i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tasks</span><span class="p">):</span>
-        <span class="c1"># 训练task_i</span>
-        <span class="n">model_i</span> <span class="o">=</span> <span class="n">train_single_task</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">task_i</span><span class="p">,</span> <span class="n">validation_data</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">task_j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tasks</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">:</span>
-                <span class="c1"># 评估在task_j上的性能</span>
-                <span class="n">perf</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">model_i</span><span class="p">,</span> <span class="n">task_j</span><span class="p">,</span> <span class="n">validation_data</span><span class="p">)</span>
-                <span class="n">affinity</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">perf</span>
-
-    <span class="c1"># 对称化</span>
-    <span class="n">affinity</span> <span class="o">=</span> <span class="p">(</span><span class="n">affinity</span> <span class="o">+</span> <span class="n">affinity</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
-
-    <span class="k">return</span> <span class="n">affinity</span>
-</code></pre></div>
-
+<p><strong>任务间相关性分析</strong>：
+<strong>任务相关性矩阵（Task Affinity Matrix）</strong>通过迁移学习实验量化任务间的协同关系。算法为每个任务训练专用模型，然后交叉评估性能，构建n×n的相关性矩阵。</p>
+<p>具体流程：对任务i训练单任务模型，然后在所有其他任务j上评估该模型的性能。如果任务i的模型在任务j上表现良好，说明两任务共享有用特征，存在正迁移。矩阵元素affinity[i,j]记录这种迁移强度。最后通过对称化操作（与转置矩阵平均）确保相关性度量的对称性。</p>
+<p>该矩阵揭示任务间的内在联系：高相关性任务对（如语义分割与深度估计，相关性&gt;0.7）适合共享底层特征；中等相关性（0.3-0.7）任务对可部分共享；低相关性（&lt;0.3）任务需要独立的特征提取器。在自动驾驶系统设计中，这种分析指导网络架构设计，将相关任务聚类，减少负迁移，提升整体效率。计算成本为O(n²×T)，其中T为单任务训练时间，通常在项目初期进行一次即可。</p>
 <p><strong>Rule of Thumb</strong>：</p>
 <ul>
 <li>任务数量：3-5个主要任务</li>
@@ -783,130 +362,35 @@ $$\Delta_i = \frac{M_i^{MTL} - M_i^{STL}}{M_i^{STL}}$$
 <p><strong>多目标优化框架</strong>：
 $$\min_\theta \mathbf{L}(\theta) = [L_1(\theta), L_2(\theta), ..., L_K(\theta)]^T$$</p>
 <p>寻找帕累托前沿。</p>
-<p><strong>Multiple Gradient Descent Algorithm (MGDA)</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">mgda_solver</span><span class="p">(</span><span class="n">gradients</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;寻找帕累托稳定点的最小范数梯度&quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
-
-    <span class="n">num_tasks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">gradients</span><span class="p">)</span>
-
-    <span class="c1"># 展平梯度</span>
-    <span class="n">grads_matrix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">g</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">gradients</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">weights</span><span class="p">):</span>
-        <span class="c1"># 加权梯度的范数</span>
-        <span class="n">weighted_grad</span> <span class="o">=</span> <span class="p">(</span><span class="n">weights</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">grads_matrix</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">weighted_grad</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-
-    <span class="c1"># 约束：权重和为1，非负</span>
-    <span class="n">constraints</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;eq&#39;</span><span class="p">,</span> <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">},</span>
-        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;ineq&#39;</span><span class="p">,</span> <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">w</span><span class="p">}</span>
-    <span class="p">]</span>
-
-    <span class="c1"># 初始化</span>
-    <span class="n">w0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_tasks</span>
-
-    <span class="c1"># 优化</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">w0</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<p><strong>Multiple Gradient Descent Algorithm (MGDA)</strong>：
+<strong>MGDA求解器（Multiple Gradient Descent Algorithm）</strong>实现多目标优化中帕累托最优解的搜索。算法通过凸优化找到使加权梯度范数最小的权重组合，确保没有任务被过度牺牲。</p>
+<p>算法首先将所有任务梯度展平并堆叠成矩阵，定义优化目标为加权梯度的L2范数最小化。这个目标函数确保找到的解位于所有梯度的凸包内，且尽可能接近原点，代表各任务的最佳平衡点。</p>
+<p>约束条件包括：权重和为1（确保有效的概率分布），权重非负（避免反向优化）。从均匀权重初始化开始，使用scipy的序列二次规划求解器迭代优化。</p>
+<p>MGDA的理论保证：找到的解是帕累托稳定的，即不存在其他解能同时改善所有任务。在自动驾驶场景中，当安全性约束与效率目标冲突时，MGDA找到理论最优的折中点。计算复杂度主要取决于梯度维度d和任务数n，为O(n²d)。实践中通常每个epoch结束时调用一次，动态调整任务权重，而非每个batch都计算，平衡了优化质量和计算效率。
+    result = minimize(objective, w0, constraints=constraints)</p>
+<div class="codehilite"><pre><span></span><code><span class="k">return</span><span class="w"> </span><span class="nx">torch</span><span class="p">.</span><span class="nx">tensor</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">x</span><span class="p">,</span><span class="w"> </span><span class="nx">dtype</span><span class="p">=</span><span class="nx">torch</span><span class="p">.</span><span class="nx">float32</span><span class="p">)</span>
 </code></pre></div>
 
+<p>```</p>
 <h3 id="_18">元学习任务权重</h3>
-<p><strong>MAML for Multi-task</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">MetaMultiTask</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_model</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">base_model</span> <span class="o">=</span> <span class="n">base_model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">task_weights</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="nf">meta_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">support_tasks</span><span class="p">,</span> <span class="n">query_tasks</span><span class="p">):</span>
-        <span class="c1"># 内循环：在support上更新</span>
-        <span class="n">adapted_params</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="n">support_tasks</span><span class="p">:</span>
-            <span class="n">task_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span>
-            <span class="n">task_loss</span> <span class="o">=</span> <span class="n">compute_task_loss</span><span class="p">(</span><span class="n">task_params</span><span class="p">,</span> <span class="n">task_data</span><span class="p">)</span>
-
-            <span class="c1"># 梯度下降一步</span>
-            <span class="n">grads</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">task_loss</span><span class="p">,</span> <span class="n">task_params</span><span class="p">)</span>
-            <span class="n">adapted</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">grad</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">task_params</span><span class="p">,</span> <span class="n">grads</span><span class="p">):</span>
-                <span class="n">adapted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_lr</span> <span class="o">*</span> <span class="n">grad</span><span class="p">)</span>
-            <span class="n">adapted_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">adapted</span><span class="p">)</span>
-
-        <span class="c1"># 外循环：在query上评估</span>
-        <span class="n">meta_loss</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">adapted_params</span><span class="p">,</span> <span class="n">query_tasks</span><span class="p">):</span>
-            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-                <span class="n">loss</span> <span class="o">=</span> <span class="n">compute_task_loss</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">task_data</span><span class="p">)</span>
-            <span class="n">meta_loss</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_weights</span><span class="p">[</span><span class="n">task_idx</span><span class="p">]</span> <span class="o">*</span> <span class="n">loss</span>
-
-        <span class="c1"># 更新元参数</span>
-        <span class="n">meta_grads</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">meta_loss</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">meta_grads</span>
-</code></pre></div>
-
+<p><strong>MAML for Multi-task</strong>：
+<strong>元学习多任务框架（MAML for Multi-task）</strong>将元学习思想应用于多任务设置，实现任务权重的自适应学习。框架包含基础模型和可学习的任务权重参数，通过双层优化算法进行更新。</p>
+<p>内循环优化在支持集（support tasks）上进行：对每个任务计算损失和梯度，执行一步梯度下降获得适配后的参数。这个过程模拟了模型在新任务上的快速适配能力。每个任务都产生一组适配后的参数，存储在adapted_params列表中。</p>
+<p>外循环优化在查询集（query tasks）上评估：使用适配后的参数计算各任务损失，通过可学习的任务权重加权求和得到元损失。对元损失进行反向传播，更新元参数（包括基础模型参数和任务权重）。</p>
+<p>这种方法的优势在于：任务权重不是手工设定或通过启发式规则调整，而是通过元学习自动学到最优值。在自动驾驶场景中，可以根据不同驾驶场景（城市、高速、停车场）自动调整任务权重，实现场景感知的多任务学习。元学习的特点是学习“如何学习”，使模型在遇到新任务组合时能快速找到合适的平衡点。</p>
 <h3 id="_19">条件任务生成</h3>
-<p><strong>任务条件网络</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">TaskConditionedNetwork</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">num_tasks</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">task_embeddings</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">num_tasks</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">film_generator</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="mi">2</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">task_id</span><span class="p">):</span>
-        <span class="c1"># 获取任务嵌入</span>
-        <span class="n">task_emb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_embeddings</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
-
-        <span class="c1"># 生成FiLM参数</span>
-        <span class="n">film_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">film_generator</span><span class="p">(</span><span class="n">task_emb</span><span class="p">)</span>
-        <span class="n">gamma</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="n">film_params</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># 应用FiLM</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">beta</span>
-
-        <span class="k">return</span> <span class="n">x</span>
-</code></pre></div>
-
+<p><strong>任务条件网络</strong>：
+<strong>任务条件网络（Task Conditioned Network）</strong>使用FiLM（Feature-wise Linear Modulation）技术实现任务特定的特征调制。网络包含任务嵌入层和FiLM参数生成器，动态调整特征表示以适应不同任务。</p>
+<p>任务嵌入层为每个任务学习一个d_model维的向量表示，捕捉任务的语义特性。FiLM生成器是一个两层MLP，将任务嵌入映射为2×d_model维的参数，分别作为缩放参数γ和偏移参数β。</p>
+<p>前向传播时，首先根据任务ID获取对应的嵌入向量，通过FiLM生成器产生调制参数。然后应用仿射变换x' = γ⊙x + β，其中⊙表示逐元素乘法。这种调制方式允许网络根据任务需求选择性地增强或抑制特定特征通道。</p>
+<p>在自动驺驶中，不同任务对特征的需求差异很大：检测任务需要突出边缘和纹理特征（γ值较大），分割任务需要平滑的语义特征（γ值适中），深度估计需要几何特征（特定通道的γ值高）。FiLM机制能够自动学习这些调制模式，实现一个网络适应多个任务。相比于为每个任务训练独立网络，这种方法大幅减少参数量，同时保持任务特定性能。</p>
 <h3 id="_20">动态任务图</h3>
-<p><strong>任务依赖图构建</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">TaskDependencyGraph</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">add_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">dependencies</span><span class="o">=</span><span class="p">[]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">dependencies</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">dep</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get_execution_order</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;拓扑排序获取执行顺序&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">topological_sort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="nf">get_parallel_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;获取可并行的任务组&quot;&quot;&quot;</span>
-        <span class="n">groups</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">())</span>
-
-        <span class="k">while</span> <span class="n">remaining</span><span class="p">:</span>
-            <span class="c1"># 找出入度为0的节点</span>
-            <span class="n">group</span> <span class="o">=</span> <span class="p">[</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">remaining</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">in_degree</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
-            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
-
-            <span class="c1"># 移除这些节点</span>
-            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">group</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-                <span class="n">remaining</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">groups</span>
-</code></pre></div>
-
+<p><strong>任务依赖图构建</strong>：
+<strong>任务依赖图（Task Dependency Graph）</strong>使用有向图管理多任务间的依赖关系，优化执行顺序和并行度。系统维护一个有向无环图（DAG），节点表示任务，边表示依赖关系。</p>
+<p>添加任务时，可以指定其依赖的先决任务列表。系统为每个依赖关系添加有向边，从依赖任务指向当前任务，确保依赖任务先完成。</p>
+<p>执行顺序获取使用拓扑排序算法，生成满足所有依赖关系的线性执行序列。这保证了每个任务执行时，其所有前置任务已经完成。</p>
+<p>并行组识别通过分层遍历实现：每次找出所有入度为0的节点（没有未完成的依赖），这些任务可以并行执行。移除这些节点后，继续寻找下一批可并行任务，直到处理完所有任务。</p>
+<p>在自动驾驶系统中，典型的依赖关系包括：检测依赖于特征提取，跟踪依赖于检测，预测依赖于跟踪，规划依赖于预测。通过依赖图管理，系统可以：(1) 自动识别可并行的任务（如不同传感器的检测）以提高吞吐量；(2) 检测循环依赖避免死锁；(3) 动态调整任务优先级基于关键路径。这种结构化方法使得复杂的多任务系统更加模块化和可维护。</p>
 <h2 id="_21">本章小结</h2>
 <p>本章系统介绍了多任务学习框架的设计与优化：</p>
 <p><strong>关键概念</strong>：</p>

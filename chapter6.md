@@ -63,97 +63,29 @@ $$y = \sum_{i \in \text{TopK}(g(x))} \frac{g_i(x)}{\sum_{j \in \text{TopK}} g_j(
 ### 粗粒度Expert设计
 
 **任务级Expert**：
-```python
-class TaskExpert(nn.Module):
-    def __init__(self, d_model, task_type):
-        super().__init__()
-        self.task_type = task_type
-
-        if task_type == 'motion':
-            # 运动预测专家
-            self.layers = MotionPredictionLayers(d_model)
-        elif task_type == 'interaction':
-            # 交互建模专家
-            self.layers = InteractionModelingLayers(d_model)
-        elif task_type == 'perception':
-            # 感知增强专家
-            self.layers = PerceptionEnhancementLayers(d_model)
-```
+任务级专家根据不同的任务类型配置专门的网络层。初始化时根据task_type参数选择相应的专家架构：运动预测专家使用MotionPredictionLayers，专注于轨迹预测和运动模式学习；交互建模专家使用InteractionModelingLayers，处理多智能体之间的相互作用；感知增强专家使用PerceptionEnhancementLayers，负责提升感知质量和鲁棒性。这种粗粒度设计让每个专家能够针对特定任务深度优化其架构和参数。
 
 **模态级Expert**：
-```python
-def modality_experts(features, modality_type):
-    experts = {
-        'visual': VisualExpert(),
-        'trajectory': TrajectoryExpert(),
-        'semantic': SemanticExpert(),
-        'temporal': TemporalExpert()
-    }
-
-    return experts[modality_type](features)
-```
+模态级专家系统根据输入数据的模态类型分配相应的处理专家。系统包含四种专门化的专家：视觉专家(VisualExpert)处理图像和视频数据，擅长空间特征提取；轨迹专家(TrajectoryExpert)分析运动路径和动态模式；语义专家(SemanticExpert)理解场景语义和对象关系；时序专家(TemporalExpert)建模时间依赖和序列演化。根据modality_type参数动态选择并应用相应专家，实现模态特定的优化处理。
 
 ### 细粒度Expert设计
 
 **Token级Expert**：
 每个token独立选择expert：
-```python
-class TokenLevelMoE(nn.Module):
-    def __init__(self, d_model, num_experts, top_k):
-        super().__init__()
-        self.experts = nn.ModuleList([
-            FeedForward(d_model) for _ in range(num_experts)
-        ])
-        self.router = nn.Linear(d_model, num_experts)
-        self.top_k = top_k
+Token级MoE实现了细粒度的专家选择机制，允许序列中的每个token独立选择最适合的专家。模型初始化num_experts个前馈网络作为专家池，以及一个线性路由器将d_model维特征映射到num_experts维的专家选择分数。
 
-    def forward(self, x):
-        # x: [batch, seq_len, d_model]
-        router_logits = self.router(x)  # [batch, seq_len, num_experts]
+前向传播过程中，首先通过路由器计算每个token对所有专家的亲和度分数（维度[batch, seq_len, num_experts]）。然后对每个token独立执行top-k选择，找出得分最高的k个专家及其归一化门控权重。
 
-        # Top-k selection per token
-        topk_logits, topk_indices = router_logits.topk(self.top_k, dim=-1)
-        topk_gates = F.softmax(topk_logits, dim=-1)
-
-        # Dispatch to experts
-        output = torch.zeros_like(x)
-        for i in range(self.top_k):
-            expert_idx = topk_indices[..., i]
-            gate = topk_gates[..., i:i+1]
-
-            # Gather tokens for each expert
-            for e in range(len(self.experts)):
-                mask = (expert_idx == e)
-                if mask.any():
-                    expert_input = x[mask]
-                    expert_output = self.experts[e](expert_input)
-                    output[mask] += gate[mask] * expert_output
-
-        return output
-```
+专家分派采用稀疏计算策略：对于每个被选中的专家，收集所有选择它的token，批量处理后将加权结果累加到输出张量对应位置。这种设计确保每个token只经过k个专家处理，大幅降低计算量的同时保持了模型的表达能力。通过mask操作高效地实现token到专家的动态路由，避免了不必要的计算。
 
 ### 层级Expert混合
 
 **浅层细粒度+深层粗粒度**：
-```python
-class HierarchicalMoE(nn.Module):
-    def __init__(self, num_layers, d_model):
-        super().__init__()
-        self.layers = nn.ModuleList()
+层级MoE架构根据网络深度动态调整专家的粒度和数量。设计理念是：浅层需要细粒度的特征提取，深层需要高层次的语义整合。
 
-        for i in range(num_layers):
-            if i < num_layers // 3:
-                # 浅层：细粒度，多expert
-                layer = TokenLevelMoE(d_model, num_experts=64, top_k=2)
-            elif i < 2 * num_layers // 3:
-                # 中层：中等粒度
-                layer = SequenceLevelMoE(d_model, num_experts=16, top_k=4)
-            else:
-                # 深层：粗粒度，少expert
-                layer = TaskLevelMoE(d_model, num_experts=4, top_k=1)
+具体配置策略：前1/3层使用Token级MoE，配置64个专家，每个token选择top-2专家，实现细粒度的局部特征学习；中间1/3层使用序列级MoE，减少到16个专家但增加top-k到4，在序列级别进行中等粒度的模式识别；最后1/3层使用任务级MoE，仅4个专家且top-1选择，专注于任务特定的高层语义理解。
 
-            self.layers.append(layer)
-```
+这种渐进式的粒度变化符合深度网络的特征抽象过程：底层关注细节，高层关注语义。同时，专家数量的递减也降低了深层的路由开销，提高了训练和推理效率。
 
 ### Expert容量设计
 
@@ -163,22 +95,7 @@ $$\text{Capacity} = \frac{n \cdot k}{N} \cdot (1 + \epsilon)$$
 其中n为token数，k为top-k，N为expert数，ε为buffer因子。
 
 **动态容量**：
-```python
-def dynamic_capacity(router_probs, min_capacity, max_capacity):
-    # 根据路由概率动态分配
-    expected_tokens = router_probs.sum(dim=0)  # 每个expert期望token数
-
-    capacities = []
-    for exp_tokens in expected_tokens:
-        capacity = torch.clamp(
-            exp_tokens * 1.25,  # 25% buffer
-            min=min_capacity,
-            max=max_capacity
-        )
-        capacities.append(int(capacity))
-
-    return capacities
-```
+动态容量分配机制根据路由概率实时调整每个专家的处理容量。算法首先通过对路由概率在第0维求和，计算每个专家的期望token数量。然后为每个专家独立分配容量：将期望token数乘以1.25（提供25%的缓冲空间），并通过clamp操作限制在[min_capacity, max_capacity]范围内，确保容量既不会过小导致丢失token，也不会过大浪费计算资源。最终将浮点容量转换为整数返回。这种动态策略让热门专家获得更多容量，冷门专家减少容量，实现资源的高效利用。
 
 **Rule of Thumb**：
 - Token级：64-128 experts
@@ -191,54 +108,15 @@ def dynamic_capacity(router_probs, min_capacity, max_capacity):
 ### Router架构
 
 **线性Router**：
-```python
-class LinearRouter(nn.Module):
-    def __init__(self, d_model, num_experts):
-        super().__init__()
-        self.w_gate = nn.Linear(d_model, num_experts, bias=False)
-
-    def forward(self, x):
-        return self.w_gate(x)
-```
+线性路由器采用最简单直接的设计，使用单个线性层（无偏置）将d_model维输入映射到num_experts维的专家选择分数。前向传播直接返回线性变换结果，作为每个专家的原始logits。这种设计计算效率高，参数量少（仅d_model × num_experts），适合作为基础路由器或对计算资源敏感的场景。
 
 **注意力Router**：
-```python
-class AttentionRouter(nn.Module):
-    def __init__(self, d_model, num_experts):
-        super().__init__()
-        self.expert_embeddings = nn.Parameter(
-            torch.randn(num_experts, d_model)
-        )
-
-    def forward(self, x):
-        # 计算与每个expert的相似度
-        scores = torch.einsum('bsd,ed->bse', x, self.expert_embeddings)
-        return scores / np.sqrt(d_model)
-```
+注意力路由器通过学习专家嵌入来实现更灵活的路由决策。初始化num_experts个d_model维的可学习专家嵌入向量，每个代表一个专家的"特征原型"。前向传播时，使用爱因斯坦求和约定计算输入x与每个专家嵌入的点积相似度，得到维度为[batch, seq, num_experts]的分数矩阵。最后除以sqrt(d_model)进行缩放，防止点积值过大。这种设计让路由决策基于语义相似性，专家嵌入在训练中自动学习特化的表示。
 
 **层级Router**：
-```python
-class HierarchicalRouter(nn.Module):
-    def __init__(self, d_model, num_groups, experts_per_group):
-        super().__init__()
-        self.group_router = nn.Linear(d_model, num_groups)
-        self.expert_routers = nn.ModuleList([
-            nn.Linear(d_model, experts_per_group)
-            for _ in range(num_groups)
-        ])
+层级路由器采用两级决策结构来管理大量专家。初始化包括一个组级路由器（映射到num_groups个组）和多个组内路由器（每组有experts_per_group个专家）。
 
-    def forward(self, x):
-        # 先选组
-        group_logits = self.group_router(x)
-        group_probs = F.softmax(group_logits, dim=-1)
-
-        # 组内选expert
-        expert_logits = []
-        for i, router in enumerate(self.expert_routers):
-            expert_logits.append(router(x) * group_probs[:, :, i:i+1])
-
-        return torch.stack(expert_logits, dim=-1).flatten(-2)
-```
+前向传播分两阶段：首先通过group_router计算每个组的选择概率，应用softmax归一化得到组级概率分布。然后对每个组，使用对应的expert_router计算组内专家分数，并用该组的概率加权。这种设计将O(num_groups × experts_per_group)的选择问题分解为O(num_groups) + O(experts_per_group)的两步决策，显著降低了路由复杂度。最终将所有组的专家分数堆叠并展平，形成完整的专家选择分布。层级结构特别适合管理大规模专家系统，提供了更好的可扩展性。
 
 ### 负载均衡机制
 
@@ -248,46 +126,15 @@ $$\mathcal{L}_{balance} = N \cdot \sum_{i=1}^N f_i \cdot P_i$$
 其中$f_i$为expert i的token比例，$P_i$为router概率均值。
 
 **实现**：
-```python
-def load_balancing_loss(router_probs, num_experts):
-    # router_probs: [batch, seq_len, num_experts]
-
-    # Token分布
-    tokens_per_expert = router_probs.sum(dim=[0, 1])
-    f = tokens_per_expert / tokens_per_expert.sum()
-
-    # Router概率分布
-    P = router_probs.mean(dim=[0, 1])
-
-    # 负载均衡损失
-    loss = num_experts * (f * P).sum()
-    return loss
-```
+负载均衡损失的计算确保token在专家间均匀分布。输入router_probs为[batch, seq_len, num_experts]维的路由概率张量。首先计算token分布：在batch和序列维度求和得到每个专家接收的token总数，归一化后得到实际分布f。然后计算路由器概率分布P：对所有位置的路由概率取平均。最后计算损失：num_experts乘以f和P的逐元素乘积之和。这个损失鼓励实际分布f趋向均匀（减少热门专家），同时鼓励路由概率P分散（增加选择多样性），从而避免负载失衡导致的计算瓶颈。
 
 ### 专家选择vs Token选择
 
 **Expert-Choice Routing**：
 Expert选择要处理的token：
-```python
-def expert_choice_routing(x, router_logits, expert_capacity):
-    batch, seq_len, num_experts = router_logits.shape
+专家选择路由反转了传统的token选择专家的模式，改为让每个专家主动选择要处理的token。对于每个专家e，算法提取所有token对该专家的亲和度分数并展平为一维。然后专家选择得分最高的k个token（k受expert_capacity限制），这确保了每个专家处理固定数量的token，自然解决了负载均衡问题。
 
-    # 每个expert选择top-k tokens
-    expert_gates = []
-    expert_indices = []
-
-    for e in range(num_experts):
-        expert_scores = router_logits[:, :, e].flatten()
-
-        # Expert选择得分最高的tokens
-        k = min(expert_capacity, len(expert_scores))
-        topk_scores, topk_idx = expert_scores.topk(k)
-
-        expert_gates.append(F.softmax(topk_scores, dim=0))
-        expert_indices.append(topk_idx)
-
-    return expert_gates, expert_indices
-```
+选中的分数通过softmax归一化为门控权重，与对应的token索引一起保存。这种设计的优势是：1）保证每个专家的负载完全可控；2）避免了某些专家过载而其他专家空闲的问题；3）简化了并行计算的实现。返回的expert_gates和expert_indices可直接用于批量处理每个专家的token集合。
 
 **Token-Choice Routing**：
 Token选择要去的expert（传统方式）。
@@ -295,26 +142,10 @@ Token选择要去的expert（传统方式）。
 ### 确定性vs随机路由
 
 **确定性路由**：
-```python
-def deterministic_routing(x, router):
-    logits = router(x)
-    # Hard top-k
-    _, indices = logits.topk(k, dim=-1)
-    return indices
-```
+确定性路由直接选择得分最高的k个专家，没有随机性。通过路由器计算logits后，使用topk操作选择每个位置得分最高的k个专家索引。这种硬选择方式在推理时效率高且结果可重复，但在训练时可能导致梯度稀疏。
 
 **随机路由（训练时）**：
-```python
-def stochastic_routing(x, router, temperature=1.0):
-    logits = router(x) / temperature
-
-    # Gumbel-Softmax采样
-    gumbel = -torch.log(-torch.log(torch.rand_like(logits)))
-    logits_with_noise = logits + gumbel
-
-    # Soft top-k
-    return F.softmax(logits_with_noise, dim=-1)
-```
+随机路由通过Gumbel-Softmax技巧引入可控的随机性。首先用温度参数缩放logits，控制选择的随机程度（温度越高越随机）。然后生成Gumbel噪声（通过双重log变换均匀分布得到）并加到logits上，实现可微分的采样。最后应用softmax得到软选择概率。这种方法在训练时提供探索能力，帮助所有专家得到训练，同时保持端到端可微分性，使得梯度能够流过路由决策。
 
 **Rule of Thumb**：
 - 负载均衡损失权重：0.01-0.1
@@ -327,108 +158,32 @@ def stochastic_routing(x, router, temperature=1.0):
 ### Common Expert设计
 
 **共享+专用架构**：
-```python
-class MoEWithCommonExpert(nn.Module):
-    def __init__(self, d_model, num_experts):
-        super().__init__()
-        # 共享专家（always active）
-        self.common_expert = FeedForward(d_model, expand_factor=2)
+共享专家架构结合了密集计算和稀疏激活的优势。模型包含一个始终激活的共享专家（使用较小的扩展因子2）和多个条件激活的专用专家（使用较大的扩展因子4）。共享专家捕获所有输入的通用特征，确保基础性能；专用专家处理特定模式，提供额外的表达能力。
 
-        # 专用专家
-        self.specialized_experts = nn.ModuleList([
-            FeedForward(d_model, expand_factor=4)
-            for _ in range(num_experts)
-        ])
-
-        self.router = Router(d_model, num_experts)
-
-    def forward(self, x):
-        # 共享路径
-        common_output = self.common_expert(x)
-
-        # 专用路径
-        specialized_output = dispatch_to_experts(
-            x, self.specialized_experts, self.router
-        )
-
-        # 组合
-        return common_output + specialized_output
-```
+前向传播时，所有输入都通过共享专家得到基础输出。同时，通过路由器选择性地将输入分派给专用专家，获得特化的增强输出。最终将两路输出相加，实现通用知识与专门知识的融合。这种设计确保了：1）即使路由失败也有基础输出；2）减少了专家间的冗余学习；3）提高了模型的稳定性和泛化能力。
 
 ### 知识蒸馏与共享
 
 **Expert间知识蒸馏**：
-```python
-def expert_distillation_loss(expert_outputs):
-    # expert_outputs: list of [batch, seq_len, d_model]
+专家间知识蒸馏通过最小化不同专家输出分布的差异来促进知识共享。算法输入为所有专家的输出列表，每个元素为[batch, seq_len, d_model]维张量。通过双重循环遍历所有专家对，计算每对专家输出之间的KL散度。
 
-    loss = 0
-    num_pairs = 0
-
-    for i in range(len(expert_outputs)):
-        for j in range(i+1, len(expert_outputs)):
-            # KL散度
-            loss += F.kl_div(
-                F.log_softmax(expert_outputs[i], dim=-1),
-                F.softmax(expert_outputs[j], dim=-1),
-                reduction='batchmean'
-            )
-            num_pairs += 1
-
-    return loss / num_pairs
-```
+具体计算时，将第i个专家的输出通过log_softmax转换为对数概率分布，第j个专家的输出通过softmax转换为概率分布，然后计算KL散度衡量分布差异。使用batchmean归约确保损失值与批次大小无关。最终将所有专家对的KL散度平均，得到知识蒸馏损失。这种机制鼓励不同专家学习相似的基础知识，同时通过路由机制保持各自的特化能力，实现知识共享与专门化的平衡。
 
 ### Mixture of Depths
 
 **深度选择机制**：
-```python
-class MixtureOfDepths(nn.Module):
-    def __init__(self, d_model, num_layers):
-        super().__init__()
-        self.layers = nn.ModuleList([
-            TransformerLayer(d_model) for _ in range(num_layers)
-        ])
-        self.depth_router = nn.Linear(d_model, num_layers)
+深度混合(Mixture of Depths)允许每个token动态选择处理深度，实现计算资源的自适应分配。模型初始化num_layers个Transformer层和一个深度路由器，后者将输入映射到各层的激活概率。
 
-    def forward(self, x):
-        # 决定每个token的处理深度
-        depth_logits = self.depth_router(x)  # [batch, seq_len, num_layers]
-        depth_probs = F.sigmoid(depth_logits)
+前向传播时，深度路由器为每个token预测num_layers个激活概率（通过sigmoid归一化到[0,1]）。然后逐层处理：对每一层，使用对应的概率mask决定是否处理该token。具体实现为mask * layer(hidden) + (1-mask) * hidden，实现了软跳过机制——概率接近1时完全处理，接近0时直接跳过，中间值时部分处理。
 
-        # 渐进处理
-        hidden = x
-        for i, layer in enumerate(self.layers):
-            # 概率性跳过
-            mask = depth_probs[:, :, i:i+1]
-            hidden = mask * layer(hidden) + (1 - mask) * hidden
-
-        return hidden
-```
+这种设计让简单token可以跳过深层处理，复杂token获得完整计算，实现了动态的深度分配。相比固定深度网络，能够在保持性能的同时显著减少平均计算量。
 
 ### 参数共享策略
 
 **层间参数共享**：
-```python
-class SharedExperts(nn.Module):
-    def __init__(self, d_model, num_experts, share_ratio=0.5):
-        super().__init__()
-        shared_dim = int(d_model * share_ratio)
-        private_dim = d_model - shared_dim
+共享专家架构通过参数分解减少冗余并促进知识共享。模型将d_model维特征分为共享部分（share_ratio比例）和专用部分。共享参数层对所有专家相同，捕获通用特征；每个专家保留私有参数层，学习特定模式。
 
-        # 共享参数
-        self.shared_params = nn.Linear(d_model, shared_dim)
-
-        # 专用参数
-        self.private_params = nn.ModuleList([
-            nn.Linear(d_model, private_dim)
-            for _ in range(num_experts)
-        ])
-
-    def forward(self, x, expert_idx):
-        shared_feat = self.shared_params(x)
-        private_feat = self.private_params[expert_idx](x)
-        return torch.cat([shared_feat, private_feat], dim=-1)
-```
+前向传播时，输入同时经过共享参数层（生成shared_dim维特征）和对应专家的私有参数层（生成private_dim维特征），然后将两部分特征拼接得到完整的d_model维输出。这种设计的优势：1）减少参数总量约(1-share_ratio)×(num_experts-1)倍；2）强制不同专家共享基础知识；3）保留专门化能力。典型的share_ratio为0.5，平衡了参数效率和表达能力。
 
 **Rule of Thumb**：
 - Common expert大小：25-50%总容量
@@ -445,132 +200,41 @@ class SharedExperts(nn.Module):
 $$\mathcal{L}_z = \frac{1}{B \cdot S} \sum_{i,j} \log^2(1 + e^{x_{ij}})$$
 
 **实现**：
-```python
-def router_z_loss(router_logits):
-    # 防止router过度自信
-    z_loss = torch.logsumexp(router_logits, dim=-1) ** 2
-    return z_loss.mean()
-```
+Router z-loss通过惩罚过大的logits值来防止路由器过度自信。算法使用logsumexp函数计算每个位置的logits的对数和指数，然后平方并取均值。这种损失函数鼓励路由器产生更平滑的概率分布，避免总是选择同一个专家，有助于训练稳定性和专家利用率的平衡。
 
 **专家多样性损失**：
-```python
-def expert_diversity_loss(expert_outputs):
-    # 鼓励不同expert产生不同输出
-    num_experts = len(expert_outputs)
-    similarity_matrix = torch.zeros(num_experts, num_experts)
+专家多样性损失鼓励不同专家学习不同的表示，避免退化为相同的功能。算法构建专家输出的相似度矩阵：对每对专家(i,j)，将其输出展平后计算余弦相似度，存储在矩阵的上三角部分。最终返回所有专家对相似度的均值作为损失。
 
-    for i in range(num_experts):
-        for j in range(i+1, num_experts):
-            # 余弦相似度
-            sim = F.cosine_similarity(
-                expert_outputs[i].flatten(),
-                expert_outputs[j].flatten(),
-                dim=0
-            )
-            similarity_matrix[i, j] = sim
-
-    # 最小化相似度
-    return similarity_matrix.mean()
-```
+通过最小化这个损失，模型被鼓励让不同专家产生正交的输出表示，增强专家的多样性和互补性。这防止了多个专家学习相同的功能，确保每个专家都有其独特的专门化方向，充分利用模型容量。
 
 ### 训练稳定性技巧
 
 **梯度裁剪策略**：
-```python
-def adaptive_gradient_clipping(model, max_norm=1.0):
-    # 每个expert独立裁剪
-    for name, param in model.named_parameters():
-        if 'expert' in name:
-            # Expert参数
-            expert_idx = int(name.split('expert')[1].split('.')[0])
-            torch.nn.utils.clip_grad_norm_(
-                param, max_norm * (1 + 0.1 * expert_idx)
-            )
-        else:
-            # 共享参数
-            torch.nn.utils.clip_grad_norm_(param, max_norm)
-```
+自适应梯度裁剪为不同专家设置不同的裁剪阈值，提高训练稳定性。算法遍历模型的所有参数，根据参数名判断是否属于某个专家。对于专家参数，从名称中提取专家索引，并应用递增的裁剪阈值max_norm * (1 + 0.1 * expert_idx)，让后面的专家有更大的梯度容忍度。对于共享参数，使用基础的max_norm裁剪。
+
+这种差异化策略考虑到：1）不同专家可能有不同的梯度尺度；2）某些专家可能需要更激进的更新；3）防止个别专家的梯度爆炸影响整体训练。通过独立裁剪，保证了训练的稳定性同时允许必要的大梯度更新。
 
 **专家Dropout**：
-```python
-class ExpertDropout(nn.Module):
-    def __init__(self, drop_rate=0.1):
-        super().__init__()
-        self.drop_rate = drop_rate
+专家Dropout在训练时随机丢弃部分专家输出，提高模型鲁棒性。模块在训练模式下，使用伯努利分布生成二值mask，每个专家有drop_rate概率被丢弃。
 
-    def forward(self, expert_outputs, training=True):
-        if not training:
-            return expert_outputs
-
-        # 随机丢弃部分expert
-        keep_prob = 1 - self.drop_rate
-        mask = torch.bernoulli(
-            torch.full((len(expert_outputs),), keep_prob)
-        )
-
-        # 重新归一化
-        scaled_outputs = []
-        for i, output in enumerate(expert_outputs):
-            if mask[i]:
-                scaled_outputs.append(output / keep_prob)
-            else:
-                scaled_outputs.append(torch.zeros_like(output))
-
-        return scaled_outputs
-```
+对于保留的专家，其输出除以keep_prob进行缩放，确保期望值不变（类似标准dropout）。被丢弃的专家输出置为零张量。这种机制的优势：1）防止模型过度依赖特定专家；2）增强专家间的冗余性和互补性；3）提高对专家失效的鲁棒性。推理时返回原始输出，不进行dropout。这种正则化技术特别适合MoE架构，防止路由器总是选择相同的专家组合。
 
 ### 初始化策略
 
 **Router初始化**：
-```python
-def init_router(router, num_experts):
-    # 均匀初始化，避免初期不平衡
-    nn.init.zeros_(router.weight)
-    nn.init.normal_(router.weight, std=0.01)
-
-    # 添加噪声打破对称性
-    with torch.no_grad():
-        router.weight += torch.randn_like(router.weight) * 0.001
-```
+路由器初始化策略对训练初期的负载均衡至关重要。算法首先将路由器权重初始化为零，然后用小标准差（0.01）的正态分布重新初始化，确保初始时所有专家有相近的选择概率。最后添加微小的随机噪声（标准差0.001）打破完全对称性，防止所有token选择相同的专家。这种渐进式初始化策略确保：1）训练初期负载相对均衡；2）避免某些专家从未被选中；3）保持足够的随机性促进探索。
 
 **Expert初始化差异化**：
-```python
-def init_experts_diverse(experts):
-    for i, expert in enumerate(experts):
-        # 不同的初始化策略
-        if i % 3 == 0:
-            nn.init.xavier_uniform_(expert.weight)
-        elif i % 3 == 1:
-            nn.init.kaiming_uniform_(expert.weight)
-        else:
-            nn.init.orthogonal_(expert.weight)
+差异化初始化让每个专家从不同的起点开始学习，促进专门化。算法循环处理每个专家，根据索引模3的结果选择不同的初始化方法：Xavier均匀分布、Kaiming均匀分布或正交初始化。这些方法有不同的方差和分布特性，导致不同的初始表示空间。
 
-        # 不同的初始scale
-        expert.weight.data *= (1 + 0.1 * i)
-```
+此外，每个专家的权重按(1 + 0.1*i)缩放，使后面的专家有稍大的初始权重。这种差异化策略的优势：1）避免专家初始表示相同；2）加速专门化过程；3）增加初始多样性。不同的初始化方法和缩放因子共同作用，确保每个专家探索参数空间的不同区域。
 
 ### 训练调度
 
 **渐进激活**：
-```python
-class ProgressiveActivation:
-    def __init__(self, num_experts, warmup_steps):
-        self.num_experts = num_experts
-        self.warmup_steps = warmup_steps
-        self.current_step = 0
+渐进激活策略在训练初期逐步增加活跃专家数量，提高训练稳定性。类维护当前步数和预热步数，计算应激活的专家数量。在预热期间，活跃专家数从1线性增长到num_experts，进度由current_step/warmup_steps决定。
 
-    def get_active_experts(self):
-        if self.current_step >= self.warmup_steps:
-            return self.num_experts
-
-        # 线性增加
-        progress = self.current_step / self.warmup_steps
-        active = int(1 + progress * (self.num_experts - 1))
-        return max(1, active)
-
-    def step(self):
-        self.current_step += 1
-```
+这种策略的优势：1）训练初期模型行为类似标准网络，易于优化；2）逐步引入更多专家，让路由器有时间学习分配策略；3）避免初期负载不均导致的训练不稳定。预热完成后，所有专家都参与训练。通过step()方法更新进度，实现平滑的专家激活过程。
 
 **Rule of Thumb**：
 - z-loss权重：0.001
@@ -588,132 +252,45 @@ class ProgressiveActivation:
 $$y = \sum_{i=1}^N \text{Softmax}(\phi(x, E_i)) \cdot E_i(x)$$
 
 **Slot-based Soft MoE**：
-```python
-class SoftMoE(nn.Module):
-    def __init__(self, d_model, num_experts, num_slots):
-        super().__init__()
-        self.num_slots = num_slots
+基于槽位的软MoE通过中间槽位表示实现token到专家的软分配。模型包含：可学习的槽位嵌入（num_slots个d_model维向量），多个专家网络，以及dispatch/combine线性层用于token与槽位间的转换。
 
-        # Slot embeddings
-        self.slot_embeds = nn.Parameter(torch.randn(num_slots, d_model))
+前向传播分三个阶段：
+1. **Dispatch阶段**：通过dispatch层计算每个token对各槽位的权重，使用softmax归一化。然后用爱因斯坦求和将token软分配到槽位，得到槽位表示。
 
-        # Experts
-        self.experts = nn.ModuleList([
-            FeedForward(d_model) for _ in range(num_experts)
-        ])
+2. **专家处理**：每个专家独立处理所有槽位表示，产生转换后的槽位输出。将所有专家输出平均，实现软的专家组合。
 
-        # Dispatch and combine weights
-        self.dispatch = nn.Linear(d_model, num_slots)
-        self.combine = nn.Linear(d_model, num_slots)
+3. **Combine阶段**：通过combine层计算重组权重，将处理后的槽位表示重新组合为token表示。
 
-    def forward(self, x):
-        batch, seq_len, d_model = x.shape
-
-        # Dispatch: tokens -> slots
-        dispatch_weights = F.softmax(self.dispatch(x), dim=1)  # [B, S, num_slots]
-        slots = torch.einsum('bsd,bsn->bnd', x, dispatch_weights)
-
-        # Process through experts
-        expert_outputs = []
-        for expert in self.experts:
-            expert_outputs.append(expert(slots))
-
-        # Weighted combination
-        combined = sum(expert_outputs) / len(self.experts)
-
-        # Combine: slots -> tokens
-        combine_weights = F.softmax(self.combine(x), dim=2)  # [B, S, num_slots]
-        output = torch.einsum('bnd,bsn->bsd', combined, combine_weights)
-
-        return output
-```
+这种设计通过槽位作为中介，实现了完全可微的软路由机制，避免了硬选择带来的梯度稀疏问题。槽位数量通常远小于token数，提供了计算效率和表达能力的平衡。
 
 ### 连续路由空间
 
 **可微分路由**：
-```python
-class DifferentiableRouter(nn.Module):
-    def __init__(self, d_model, num_experts):
-        super().__init__()
-        self.temperature = nn.Parameter(torch.ones(1))
-        self.router = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, num_experts)
-        )
+可微分路由器使用可学习温度参数和多层网络实现灵活的软路由。路由器包含两层线性网络（中间有ReLU激活）和可学习的温度参数。
 
-    def forward(self, x):
-        logits = self.router(x)
+前向传播时，输入通过两层网络得到专家选择logits。使用可学习温度进行缩放后应用softmax，得到软路由权重。温度参数在训练中自动调整：高温促进探索（更均匀的分布），低温促进利用（更尖锐的选择）。
 
-        # Soft routing with learnable temperature
-        routing_weights = F.softmax(logits / self.temperature, dim=-1)
-
-        # Entropy regularization for exploration
-        entropy = -(routing_weights * routing_weights.log()).sum(-1).mean()
-
-        return routing_weights, entropy
-```
+算法还计算路由分布的熵作为正则化信号，鼓励适度的探索。熵通过-(p*log(p))计算并返回，可作为额外损失项加入总损失中。这种设计实现了完全可微的路由机制，同时通过温度和熵平衡了专家专门化与多样性。
 
 ### 动态Expert生成
 
 **Meta-learning Expert**：
-```python
-class MetaExpert(nn.Module):
-    def __init__(self, d_model):
-        super().__init__()
-        # 超网络生成expert参数
-        self.hyper_net = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model * d_model)
-        )
+元学习专家使用超网络动态生成专家参数，实现极度灵活的条件计算。超网络是一个两层网络，将d_model维的上下文映射到d_model×d_model的权重矩阵。
 
-    def forward(self, x, context):
-        # 根据context生成expert参数
-        batch_size = x.shape[0]
+前向传播时，超网络根据输入的context生成批次特定的权重矩阵。生成的权重reshape为[batch_size, d_model, d_model]的张量。然后使用批次矩阵乘法（bmm）将输入x与动态生成的权重相乘，实现参数化的专家计算。
 
-        # 生成权重
-        weights = self.hyper_net(context)
-        weights = weights.view(batch_size, d_model, d_model)
-
-        # 应用生成的expert
-        output = torch.bmm(x.unsqueeze(1), weights).squeeze(1)
-        return output
-```
+这种设计的革命性在于：每个输入可以有完全不同的"专家"，专家参数完全由上下文决定。相比固定的专家池，这提供了无限的专家容量，特别适合处理高度异构的输入。超网络学会了如何根据上下文"编程"专家的行为，实现了真正的元学习。
 
 ### Conditional Computation
 
 **条件计算图**：
-```python
-class ConditionalMoE(nn.Module):
-    def __init__(self, d_model, condition_dim):
-        super().__init__()
-        # 条件编码器
-        self.condition_encoder = nn.Linear(condition_dim, d_model)
+条件MoE根据外部条件信息动态调整计算路径。模型使用条件编码器将condition_dim维的条件信息（如场景类型、天气状态、时间等）映射到d_model维的嵌入空间。
 
-        # 条件化experts
-        self.experts = nn.ModuleList([
-            ConditionalExpert(d_model) for _ in range(8)
-        ])
+路由机制基于输入与条件嵌入的交互：通过爱因斯坦求和计算x与cond_embedding的内积，得到每个样本对各专家的亲和度。这种设计让相同的输入在不同条件下可以路由到不同的专家。
 
-    def forward(self, x, condition):
-        # 编码条件
-        cond_embedding = self.condition_encoder(condition)
+每个条件化专家接收原始输入x和条件嵌入cond_embedding，能够根据条件调整其处理方式。最终输出是所有专家输出的软加权组合，权重由条件化路由决定。
 
-        # 条件化路由
-        router_logits = torch.einsum('bsd,d->bs', x, cond_embedding)
-
-        # Soft routing
-        routing_weights = F.softmax(router_logits, dim=-1)
-
-        # 加权组合
-        output = 0
-        for i, expert in enumerate(self.experts):
-            weight = routing_weights[:, i:i+1, None]
-            output += weight * expert(x, cond_embedding)
-
-        return output
-```
+这种架构特别适合自动驾驶场景：白天/夜晚使用不同的感知专家，城市/高速采用不同的规划策略，晴天/雨天激活不同的处理模块。条件信息提供了额外的上下文，使模型能够更智能地分配计算资源。
 
 ## 本章小结
 
